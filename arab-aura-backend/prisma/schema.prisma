@@ -1,0 +1,183 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 👤 المستخدمين (يدعم الويب وتطبيقات الموبايل iOS / Android)
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  phone       String?
+  role        String   @default("customer") // "customer" | "seller" | "collector" | "driver" | "admin"
+  avatar      String?
+  
+  // 📱 دعم الموبايل والإشعارات الفورية
+  deviceToken String?  // FCM Push Token for Mobile App
+  deviceType  String?  @default("web") // "ios" | "android" | "web"
+  
+  // 📍 تتبع الكابتن المباشر في الموبايل
+  currentLat  Float?
+  currentLng  Float?
+  isOnline    Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  brands        Brand[]
+  orders        Order[]        @relation("CustomerOrders")
+  hubs          Hub[]          @relation("CollectorHubs")
+  deliveries    Order[]        @relation("DriverOrders")
+  reviews       Review[]
+  notifications Notification[]
+}
+
+// 🏢 البراندات والمصانع المصرية
+model Brand {
+  id            String    @id @default(uuid())
+  name          String
+  nameAr        String
+  descriptionAr String?
+  descriptionEn String?
+  bgImage       String?
+  logoText      String?
+  sellerId      String
+  seller        User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  products      Product[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// 👕 المنتجات والكتالوج
+model Product {
+  id            String      @id @default(uuid())
+  brandId       String
+  brand         Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  titleAr       String
+  titleEn       String
+  category      String
+  price         Float
+  oldPrice      Float?
+  rating        Float       @default(5.0)
+  image         String
+  images        String      @default("[]") // JSON string of images
+  sizes         String      @default("[\"S\",\"M\",\"L\",\"XL\",\"XXL\"]") // JSON string
+  colors        String      @default("[]") // JSON string of [{nameAr, nameEn, hex}]
+  badgeAr       String?
+  badgeEn       String?
+  descriptionAr String
+  descriptionEn String
+  stock         Int         @default(50)
+  deliveryTime  String      @default("خلال 24 ساعة")
+  orderItems    OrderItem[]
+  reviews       Review[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// 📍 مراكز التجميع بالأحياء (Micro-Hubs)
+model Hub {
+  id          String   @id @default(uuid())
+  name        String
+  nameAr      String
+  code        String   @unique // e.g. "HUB-OCT-01", "HUB-MONUF-02"
+  governorate String   // e.g. "الجيزة" / "المنوفية"
+  city        String   // e.g. "6 أكتوبر" / "شبين الكوم"
+  address     String
+  collectorId String?
+  collector   User?    @relation("CollectorHubs", fields: [collectorId], references: [id])
+  latitude    Float?
+  longitude   Float?
+  active      Boolean  @default(true)
+  orders      Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 📦 الطلبات والشحنات المجمعة
+model Order {
+  id            String      @id @default(uuid())
+  orderNumber   String      @unique // e.g. "ORD-9821"
+  customerId    String?
+  customer      User?       @relation("CustomerOrders", fields: [customerId], references: [id])
+  customerName  String
+  customerPhone String
+  governorate   String
+  city          String
+  address       String
+  
+  // 📱 إحداثيات موقع التسليم في الموبايل
+  deliveryLat   Float?
+  deliveryLng   Float?
+  
+  shippingType  String      @default("standard") // "standard" | "express"
+  shippingFee   Float       @default(35.0) // Flat 35 EGP Neighborhood Batch Delivery!
+  itemsTotal    Float
+  totalAmount   Float
+  paymentMethod String      @default("cod") // "cod" | "instapay" | "wallet" | "card"
+  paymentStatus String      @default("unpaid") // "unpaid" | "paid"
+  status        String      @default("collected_in_hub") // "pending" | "ready_for_collection" | "collected_in_hub" | "out_for_delivery" | "delivered" | "cancelled"
+  
+  // 🔐 أمان الاستلام وتأكيد الموبايل
+  otpCode       String      // 4-digit secret OTP code for doorstep handover
+  packageId     String?     // Consolidated batch package ID, e.g. "PKG-OCT-7701"
+  qrCode        String?     // QR code payload for driver scanner
+  barcode       String?     // Barcode for hub warehouse scanner
+  
+  hubId         String?
+  hub           Hub?        @relation(fields: [hubId], references: [id])
+  driverId      String?
+  driver        User?       @relation("DriverOrders", fields: [driverId], references: [id])
+  driverVehicle String?
+  driverPlate   String?
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// 🛍️ عناصر الطلب
+model OrderItem {
+  id           String   @id @default(uuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id])
+  productTitle String
+  brandName    String
+  unitPrice    Float
+  quantity     Int      @default(1)
+  size         String   @default("L")
+  color        String   @default("أزرق")
+  imageUrl     String?
+}
+
+// 🔔 الإشعارات الفورية (Web & Mobile Push)
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("order") // "order" | "delivery" | "promotion" | "system"
+  read      Boolean  @default(false)
+  data      String?  // JSON metadata (e.g. { orderId: "ORD-9821" })
+  createdAt DateTime @default(now())
+}
+
+// ⭐ التقييمات والمراجعات
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int      @default(5)
+  comment   String
+  createdAt DateTime @default(now())
+}

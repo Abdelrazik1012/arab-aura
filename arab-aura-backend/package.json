@@ -1,0 +1,44 @@
+{
+  "name": "arab-aura-backend",
+  "version": "1.0.0",
+  "description": "Arab Aura - Egyptian Fashion Marketplace & Micro-Hub Logistics Backend API",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed": "tsx src/utils/seed.ts"
+  },
+  "keywords": [
+    "ecommerce",
+    "logistics",
+    "micro-hub",
+    "egypt",
+    "express",
+    "typescript",
+    "prisma"
+  ],
+  "author": "Arab Aura Team",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^6.4.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.11.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/mongoose": "^5.11.96",
+    "@types/node": "^22.10.1",
+    "mongodb-memory-server": "^11.3.0",
+    "prisma": "^6.4.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

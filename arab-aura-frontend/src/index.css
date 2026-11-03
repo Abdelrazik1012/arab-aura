@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* Leaflet Tile & Responsive Fixes for Tailwind CSS v4 */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+  font-family: inherit;
+}
+
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+  box-shadow: none !important;
+}
+
+.leaflet-pane {
+  z-index: 400 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 500 !important;
+}
+
+/* Custom Marker Styling */
+.hub-marker-custom,
+.order-marker-custom,
+.van-marker-custom,
+.journey-store-icon,
+.journey-hub-icon,
+.journey-van-icon,
+.journey-dest-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+body {
+  direction: rtl;
+  background-color: #FDFBF7;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
