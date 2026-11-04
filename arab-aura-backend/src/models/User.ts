@@ -6,11 +6,16 @@ export type UserRole = "customer" | "seller" | "collector" | "driver" | "admin";
 
 export interface IUser extends Document {
   name: string;
+  username?: string;
   email: string;
   password: string;
   phone?: string;
   role: UserRole;
   avatar?: string;
+  nationalId?: string;
+  birthDate?: string;
+  walletBalance: number;
+  googleId?: string;
   // 📱 دعم تطبيقات الموبايل
   deviceToken?: string;
   deviceType?: "ios" | "android" | "web";
@@ -26,7 +31,20 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     password: { type: String, required: true, minlength: 6 },
     phone: { type: String, trim: true },
     role: {
@@ -35,8 +53,16 @@ const UserSchema = new Schema<IUser>(
       default: "customer",
     },
     avatar: { type: String },
+    nationalId: { type: String, trim: true },
+    birthDate: { type: String, trim: true },
+    walletBalance: { type: Number, default: 0 },
+    googleId: { type: String, sparse: true },
     deviceToken: { type: String },
-    deviceType: { type: String, enum: ["ios", "android", "web"], default: "web" },
+    deviceType: {
+      type: String,
+      enum: ["ios", "android", "web"],
+      default: "web",
+    },
     currentLat: { type: Number },
     currentLng: { type: Number },
     isOnline: { type: Boolean, default: false },

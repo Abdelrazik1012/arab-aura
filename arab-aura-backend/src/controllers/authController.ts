@@ -8,25 +8,61 @@ import { AuthenticatedRequest } from "../types";
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, phone, role, brandName, deviceToken, deviceType } =
-      req.body;
+    const {
+      name,
+      username,
+      email,
+      password,
+      phone,
+      role,
+      nationalId,
+      birthDate,
+      brandName,
+      deviceToken,
+      deviceType,
+    } = req.body;
 
     if (!name || !email || !password) {
-      return sendError(res, "يرجى إدخال جميع الحقول المطلوبة (الاسم، البريد، كلمة المرور)", 400);
+      return sendError(
+        res,
+        "يرجى إدخال جميع الحقول المطلوبة (الاسم، البريد، كلمة المرور)",
+        400
+      );
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const cleanEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return sendError(res, "هذا البريد الإلكتروني مسجل بالفعل", 409);
+    }
+
+    // استخراج أو تنظيف اسم المستخدم
+    let finalUsername = username ? username.trim().toLowerCase() : cleanEmail.split("@")[0].replace(/[^a-zA-Z0-9_.]/g, "");
+    if (!finalUsername) {
+      finalUsername = `user_${Date.now().toString().slice(-6)}`;
+    }
+
+    // التحقق من تكرار اسم المستخدم
+    const existingUsername = await User.findOne({ username: finalUsername });
+    if (existingUsername) {
+      if (username) {
+        return sendError(res, "اسم المستخدم هذا مأخوذ بالفعل، يرجى اختيار اسم مستخدم آخر", 409);
+      }
+      finalUsername = `${finalUsername}_${Math.floor(100 + Math.random() * 900)}`;
     }
 
     const assignedRole = role || "customer";
 
     const user = new User({
       name,
-      email: email.toLowerCase(),
+      username: finalUsername,
+      email: cleanEmail,
       password,
       phone,
+      nationalId,
+      birthDate,
+      walletBalance: 0, // كل حساب جديد يبدأ برصيد 0.00 EGP
       role: assignedRole,
       deviceToken,
       deviceType: deviceType || "web",
@@ -61,9 +97,13 @@ export const register = async (req: Request, res: Response) => {
         user: {
           id: user._id,
           name: user.name,
+          username: user.username,
           email: user.email,
           role: user.role,
           phone: user.phone,
+          nationalId: user.nationalId,
+          birthDate: user.birthDate,
+          walletBalance: user.walletBalance,
         },
       },
       201
@@ -75,20 +115,30 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password, deviceToken, deviceType } = req.body;
+    const { email, username, identifier, password, deviceToken, deviceType } = req.body;
 
-    if (!email || !password) {
-      return sendError(res, "يرجى إدخال البريد الإلكتروني وكلمة المرور", 400);
+    const loginId = (identifier || username || email || "").trim().toLowerCase();
+
+    if (!loginId || !password) {
+      return sendError(
+        res,
+        "يرجى إدخال البريد الإلكتروني أو اسم المستخدم وكلمة المرور",
+        400
+      );
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // البحث إما بالبريد الإلكتروني أو اسم المستخدم
+    const user = await User.findOne({
+      $or: [{ email: loginId }, { username: loginId }],
+    });
+
     if (!user) {
-      return sendError(res, "البريد الإلكتروني أو كلمة المرور غير صحيحة", 401);
+      return sendError(res, "بيانات الدخول غير صحيحة", 401);
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return sendError(res, "البريد الإلكتروني أو كلمة المرور غير صحيحة", 401);
+      return sendError(res, "بيانات الدخول غير صحيحة", 401);
     }
 
     // تحديث توكن الموبايل إن وجد
@@ -110,14 +160,77 @@ export const login = async (req: Request, res: Response) => {
       user: {
         id: user._id,
         name: user.name,
+        username: user.username,
         email: user.email,
         role: user.role,
         phone: user.phone,
         avatar: user.avatar,
+        walletBalance: user.walletBalance || 0,
       },
     });
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ أثناء تسجيل الدخول", 500);
+  }
+};
+
+// 🌐 تسجيل الدخول عبر Google (Continue with Google)
+export const googleAuth = async (req: Request, res: Response) => {
+  try {
+    const { email, name, avatar, googleId, role } = req.body;
+
+    if (!email) {
+      return sendError(res, "البريد الإلكتروني مطلوب للمتابعة باستخدام Google", 400);
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: cleanEmail });
+
+    if (!user) {
+      // إنشاء حساب جديد من Google
+      const autoUsername = cleanEmail.split("@")[0].replace(/[^a-zA-Z0-9_.]/g, "");
+      const finalUsername = `${autoUsername}_${Math.floor(100 + Math.random() * 900)}`;
+
+      user = new User({
+        name: name || autoUsername,
+        username: finalUsername,
+        email: cleanEmail,
+        password: `google_auth_${Date.now()}_${Math.random()}`,
+        avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || autoUsername)}&background=2B7A78&color=fff`,
+        googleId: googleId || `g_${Date.now()}`,
+        role: role || "customer",
+        walletBalance: 0,
+      });
+
+      await user.save();
+    } else {
+      if (avatar && !user.avatar) {
+        user.avatar = avatar;
+        await user.save();
+      }
+    }
+
+    const token = generateToken({
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    });
+
+    return sendSuccess(res, "تم تسجيل الدخول بحساب Google بنجاح", {
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        avatar: user.avatar,
+        walletBalance: user.walletBalance || 0,
+      },
+    });
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء تسجيل الدخول بـ Google", 500);
   }
 };
 
