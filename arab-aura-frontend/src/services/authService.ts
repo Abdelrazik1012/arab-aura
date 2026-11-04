@@ -21,9 +21,10 @@ export const authService = {
       const response = await api.post("/auth/login", credentials);
       if (response.data?.success && response.data?.data) {
         const { token, user } = response.data.data;
+        const normalizedRole = user.role === "customer" ? "user" : user.role;
         localStorage.setItem("auth_token", token);
         localStorage.setItem("user_data", JSON.stringify({ ...user, token }));
-        localStorage.setItem("user_role", user.role);
+        localStorage.setItem("user_role", normalizedRole);
         return response.data.data;
       }
       throw new Error(response.data?.message || "فشل تسجيل الدخول");
@@ -37,9 +38,10 @@ export const authService = {
     const response = await api.post("/auth/register", userData);
     if (response.data?.success && response.data?.data) {
       const { token, user } = response.data.data;
+      const normalizedRole = user.role === "customer" ? "user" : user.role;
       localStorage.setItem("auth_token", token);
       localStorage.setItem("user_data", JSON.stringify({ ...user, token }));
-      localStorage.setItem("user_role", user.role);
+      localStorage.setItem("user_role", normalizedRole);
       return response.data.data;
     }
     throw new Error(response.data?.message || "فشل إنشاء الحساب");

@@ -60,13 +60,17 @@ const RoleBasedRoute: React.FC<{
   allowedRole: string;
   children: React.ReactNode;
 }> = ({ allowedRole, children }) => {
-  const currentRole = localStorage.getItem("user_role") || "user";
+  const rawRole = localStorage.getItem("user_role") || "user";
+  // توحيد دور العميل سواء كان "customer" أو "user" لمنع التوجيه اللانهائي
+  const currentRole = rawRole === "customer" ? "user" : rawRole;
+  const normalizedAllowedRole = allowedRole === "customer" ? "user" : allowedRole;
+
   const isSuperAdmin =
     localStorage.getItem("original_admin") === "true" ||
     currentRole === "admin";
 
   // للأدمن صلاحية الوصول الشامل لجميع الشاشات بصفته الإدارية
-  if (isSuperAdmin || currentRole === allowedRole) {
+  if (isSuperAdmin || currentRole === normalizedAllowedRole) {
     return <>{children}</>;
   }
 
