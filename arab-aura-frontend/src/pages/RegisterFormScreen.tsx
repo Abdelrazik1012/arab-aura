@@ -101,6 +101,7 @@ const RegisterFormScreen: React.FC = () => {
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [isUsernameCustomized, setIsUsernameCustomized] = useState(false);
+  const [phone, setPhone] = useState("");
   const [brandName, setBrandName] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [birthDay, setBirthDay] = useState("");
@@ -244,7 +245,7 @@ const RegisterFormScreen: React.FC = () => {
         username: finalUser,
         email: email.trim().toLowerCase(),
         password,
-        phone: guarantorPhone || nationalId || "+201092242607",
+        phone: phone.trim() || guarantorPhone.trim() || undefined,
         role: backendRole,
         nationalId,
         birthDate: birthYear && birthMonth && birthDay ? `${birthYear}-${birthMonth}-${birthDay}` : undefined,
@@ -470,6 +471,24 @@ const RegisterFormScreen: React.FC = () => {
                 <p className="text-[10px] text-gray-400 mt-1">
                   {currentData.userNameHint}
                 </p>
+              </div>
+
+              {/* 📱 رقم الهاتف المحمول الشخصي */}
+              <div>
+                <label className="block text-xs sm:text-sm font-bold mb-1.5">
+                  {lang === "ar" ? "رقم الهاتف المحمول" : "Mobile Phone Number"}
+                </label>
+                <input
+                  type="tel"
+                  placeholder="010xxxxxxxx"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-xs sm:text-sm font-mono outline-none transition ${
+                    isDarkMode
+                      ? "bg-[#1E293B] border-gray-700 text-white focus:border-cyan-400"
+                      : "bg-gray-50 border-gray-300 focus:border-[#41535D]"
+                  }`}
+                />
               </div>
 
               {/* حقل اسم البراند إذا كان الحساب تاجر */}

@@ -165,7 +165,37 @@ const LoginScreen: React.FC = () => {
     const normalizedInput = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
 
-    // 1️⃣ البحث الدقيق في الحسابات التجريبية (اسم المستخدم/الإيميل + كلمة السر)
+    // 1️⃣ أولاً: محاولة الدخول الحية دائماً عبر خادم الباك إند وقاعدة البيانات
+    try {
+      const data = await authService.login({
+        identifier: email.trim(),
+        email: email.trim(),
+        username: email.trim(),
+        password: trimmedPassword,
+      });
+      if (data && data.user) {
+        const savedRole = localStorage.getItem("user_role") || "user";
+        if (data.user.role === "admin") {
+          localStorage.setItem("original_admin", "true");
+        }
+        redirectByRole(savedRole);
+        return;
+      }
+    } catch (err: any) {
+      // إذا كان الخطأ من السيرفر (بيانات غير صحيحة 400/401/404)
+      if (err.response?.status === 400 || err.response?.status === 401 || err.response?.status === 404) {
+        setErrorMsg(
+          err?.response?.data?.message ||
+            (lang === "ar"
+              ? "بيانات الدخول غير صحيحة"
+              : "Invalid login credentials"),
+        );
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2️⃣ ثانياً: في حال انقطاع الشبكة فقط، الدخول التجريبي عبر الحسابات المسجلة مسبقاً
     const foundUser = mockUsers.find(
       (u) =>
         (u.username.toLowerCase() === normalizedInput ||
@@ -182,69 +212,16 @@ const LoginScreen: React.FC = () => {
           localStorage.setItem("original_admin", "true");
         }
         redirectByRole(foundUser.role);
-      }, 400);
+      }, 300);
       return;
     }
 
-    // 2️⃣ Dyanmic Mock Fallback: دخول تجريبي مرن عند إدخال اسم حساب معروف بدون التقيّد بالباسوورد
-    let fallbackRole = "";
-    if (normalizedInput === "3arabbadr" || normalizedInput.includes("admin")) {
-      fallbackRole = "admin";
-    } else if (
-      normalizedInput === "hub_collector" ||
-      normalizedInput.includes("collector")
-    ) {
-      fallbackRole = "collector";
-    } else if (
-      normalizedInput === "brand_owner" ||
-      normalizedInput.includes("seller")
-    ) {
-      fallbackRole = "seller";
-    } else if (
-      normalizedInput === "driver_hero" ||
-      normalizedInput.includes("driver")
-    ) {
-      fallbackRole = "driver";
-    }
-
-    if (fallbackRole) {
-      const mockUserData = {
-        username: normalizedInput,
-        email: `${normalizedInput}@aura.com`,
-        role: fallbackRole,
-        name: normalizedInput,
-      };
-      setTimeout(() => {
-        setLoading(false);
-        localStorage.setItem("user_data", JSON.stringify(mockUserData));
-        localStorage.setItem("user_role", fallbackRole);
-        if (fallbackRole === "admin") {
-          localStorage.setItem("original_admin", "true");
-        }
-        redirectByRole(fallbackRole);
-      }, 400);
-      return;
-    }
-
-    // 3️⃣ محاولة الدخول عبر السيرفر الخارجي (API Connection)
-    try {
-      await authService.login({
-        identifier: email.trim(),
-        email: email.trim(),
-        password,
-      });
-      const savedRole = localStorage.getItem("user_role") || "user";
-      redirectByRole(savedRole);
-    } catch (err: any) {
-      setErrorMsg(
-        err?.response?.data?.message ||
-          (lang === "ar"
-            ? "بيانات الدخول غير صحيحة"
-            : "Invalid login credentials"),
-      );
-    } finally {
-      setLoading(false);
-    }
+    setErrorMsg(
+      lang === "ar"
+        ? "بيانات الدخول غير صحيحة أو الحساب غير موجود"
+        : "Invalid login credentials",
+    );
+    setLoading(false);
   };
 
   // تسجيل سريع بحساب Google

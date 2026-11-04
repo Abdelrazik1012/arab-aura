@@ -27,13 +27,17 @@ export const SellerDashboardScreen: React.FC = () => {
 
   // 👤 بيانات الحساب الشخصي للبائع من التخزين المحلي
   const [sellerProfile, setSellerProfile] = useState(() => {
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(localStorage.getItem("user_data") || "{}");
+    } catch {}
     return {
-      fullName: localStorage.getItem("user_name") || "عبدالرازق بدر",
-      phone: localStorage.getItem("user_phone") || "+201092242607",
-      email: localStorage.getItem("user_email") || "abdelrazikrbadr@gmail.com",
-      nationalId: localStorage.getItem("user_national_id") || "20012121401234",
-      storeName: "Town Team (مول العرب)",
-      payoutMethod: "Instapay (01092242607)",
+      fullName: parsed.name || localStorage.getItem("user_name") || "",
+      phone: parsed.phone || localStorage.getItem("user_phone") || "",
+      email: parsed.email || localStorage.getItem("user_email") || "",
+      nationalId: parsed.nationalId || localStorage.getItem("user_national_id") || "",
+      storeName: parsed.brandName || "متجر الملابس المحلي",
+      payoutMethod: parsed.phone ? `Instapay (${parsed.phone})` : "Instapay",
     };
   });
 

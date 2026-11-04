@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePlatform } from "../../context/PlatformContext";
@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import type { OrderStatus, PlatformOrder } from "../../context/PlatformContext";
 import BrandLogo from "../../components/BrandLogo";
 import { LeafletJourneyTracker } from "../../components/LeafletJourneyTracker";
+import authService from "../../services/authService";
 import {
   LogoutIcon,
   BellIcon,
@@ -45,19 +46,89 @@ export const CustomerProfilePage: React.FC = () => {
   // حالة فتح نافذة تتبع مسار الرحلة الحية للطلب
   const [trackingOrder, setTrackingOrder] = useState<PlatformOrder | null>(null);
 
-  // 👤 بيانات المستخدم المكتملة بناءً على نموذج التسجيل
-  const [userInfo, setUserInfo] = useState({
-    fullName: "عبد الرازق رضا عبد الرازق بدر",
-    username: "abdelrazik_badr",
-    email: "abdelrazikrbadr@gmail.com",
-    phone: "+201092242607",
-    secondaryPhone: "+201123456789",
-    primaryAddress:
-      "مدينة 6 أكتوبر - الحي السابع - بالقرب من مدينة الثقافة والعلوم",
-    secondaryAddress: "محافظة المنوفية - شبين الكوم",
-    preferredPayment: "wallet",
-    avatarUrl: "",
-  });
+  // 👤 دالة تهيئة بيانات المستخدم ديناميكياً من التخزين المحلي
+  const getInitialUserData = () => {
+    try {
+      const stored = localStorage.getItem("user_data");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          fullName: parsed.name || parsed.fullName || localStorage.getItem("user_name") || "",
+          username: parsed.username || (parsed.email ? parsed.email.split("@")[0] : ""),
+          email: parsed.email || localStorage.getItem("user_email") || "",
+          phone: parsed.phone || localStorage.getItem("user_phone") || "",
+          secondaryPhone: parsed.secondaryPhone || "",
+          primaryAddress: parsed.address || parsed.primaryAddress || "مدينة 6 أكتوبر - الجيزة",
+          secondaryAddress: parsed.secondaryAddress || "",
+          preferredPayment: parsed.preferredPayment || "wallet",
+          avatarUrl: parsed.avatar || parsed.avatarUrl || "",
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to parse stored user_data", e);
+    }
+    return {
+      fullName: localStorage.getItem("user_name") || "",
+      username: "",
+      email: localStorage.getItem("user_email") || "",
+      phone: localStorage.getItem("user_phone") || "",
+      secondaryPhone: "",
+      primaryAddress: "مدينة 6 أكتوبر - الجيزة",
+      secondaryAddress: "",
+      preferredPayment: "wallet",
+      avatarUrl: "",
+    };
+  };
+
+  // 👤 بيانات المستخدم الحية المرتبطة بالحساب
+  const [userInfo, setUserInfo] = useState(getInitialUserData);
+
+  // 🔄 مزامنة بيانات الحساب الحية مباشرة من الباك إند
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshProfile = async () => {
+      try {
+        const me = await authService.getMe();
+        if (me && isMounted) {
+          setUserInfo((prev) => ({
+            ...prev,
+            fullName: me.name || prev.fullName,
+            username: me.username || prev.username,
+            email: me.email || prev.email,
+            phone: me.phone || prev.phone,
+            avatarUrl: me.avatar || prev.avatarUrl,
+          }));
+        }
+      } catch (err) {
+        console.warn("Backend /auth/me sync skipped:", err);
+      }
+    };
+    fetchFreshProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 📦 تصفية الطلبات الخاصة بهذا المستخدم فقط لمنع ظهور طلبات مستخدمين آخرين
+  const userOrders = useMemo(() => {
+    const userPhone = (userInfo.phone || "").trim().replace(/\D/g, "");
+    const userName = (userInfo.fullName || "").trim().toLowerCase();
+    
+    // إذا كان الحساب جديداً تماماً ولم يطلب بعد
+    if (!userPhone && !userName) return [];
+
+    return orders.filter((ord) => {
+      const orderPhone = (ord.phone || "").trim().replace(/\D/g, "");
+      const orderName = (ord.customerName || "").trim().toLowerCase();
+      const orderEmail = (ord.customerEmail || "").trim().toLowerCase();
+      
+      const phoneMatch = Boolean(userPhone && orderPhone && (orderPhone.includes(userPhone) || userPhone.includes(orderPhone)));
+      const nameMatch = Boolean(userName && orderName && orderName.includes(userName));
+      const emailMatch = Boolean(userInfo.email && orderEmail && orderEmail === userInfo.email.toLowerCase());
+      
+      return phoneMatch || nameMatch || emailMatch;
+    });
+  }, [orders, userInfo.phone, userInfo.fullName]);
 
   // 🔒 بيانات الأمان وكلمة المرور
   const [securityData, setSecurityData] = useState({
@@ -125,14 +196,26 @@ export const CustomerProfilePage: React.FC = () => {
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await authService.updateProfile({
+        name: userInfo.fullName,
+        username: userInfo.username,
+        phone: userInfo.phone,
+        avatar: userInfo.avatarUrl,
+        primaryAddress: userInfo.primaryAddress,
+        secondaryAddress: userInfo.secondaryAddress,
+        secondaryPhone: userInfo.secondaryPhone,
+      });
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }, 800);
+      setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -338,7 +421,7 @@ export const CustomerProfilePage: React.FC = () => {
               {lang === "ar" ? "طلباتي وتتبع الشحنات" : "My Orders & Tracking"}
             </span>
             <span className="px-1.5 py-0.2 rounded-full bg-slate-900/10 dark:bg-white/10 text-[10px]">
-              {orders.length}
+              {userOrders.length}
             </span>
           </button>
 
@@ -552,7 +635,7 @@ export const CustomerProfilePage: React.FC = () => {
         {/* 📦 2. تبويب متابعة الطلبات والشحنات الحية */}
         {activeTab === "orders" && (
           <div className="space-y-4">
-            {orders.length === 0 ? (
+            {userOrders.length === 0 ? (
               <div
                 className={`p-10 rounded-3xl border text-center space-y-3 ${
                   isDarkMode
@@ -576,7 +659,7 @@ export const CustomerProfilePage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              orders.map((ord) => {
+              userOrders.map((ord) => {
                 const stepIdx = getStepIndex(ord.status);
                 const stepsLabels = [
                   lang === "ar" ? "تأكيد الطلب" : "Placed",

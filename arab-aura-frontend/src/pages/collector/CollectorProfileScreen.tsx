@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
+import authService from "../../services/authService";
 import {
   UserIcon,
   MapPinIcon,
@@ -14,35 +15,87 @@ export const CollectorProfileScreen: React.FC = () => {
   const isRtl = lang === "ar";
   const { isDarkMode: isDark } = useTheme();
 
-  // 👤 بيانات المُجمّع والهَب
-  const [profileData, setProfileData] = useState({
-    fullName: "عبد الرازق رضا بدر",
-    phone: "+201092242607",
-    email: "abdelrazikrbadr@gmail.com",
-    hubName: "Home Hub - المنطقة الصناعية (زون A4)",
-    city: "مدينة 6 أكتوبر",
-    governorate: "الجيزة",
-    coverageRadiusKm: 10,
-    vehicleType: "تروسيكل نقل بضائع / فانيت",
-    nationalId: "29012151801234",
-    rating: 4.9,
-    totalCollectedOrders: 342,
-    totalPackagesBuilt: 128,
-  });
+  // 👤 دالة جلب بيانات الحساب الفعلية
+  const getInitialCollectorData = () => {
+    try {
+      const stored = localStorage.getItem("user_data");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          fullName: parsed.name || parsed.fullName || localStorage.getItem("user_name") || "",
+          phone: parsed.phone || localStorage.getItem("user_phone") || "",
+          email: parsed.email || localStorage.getItem("user_email") || "",
+          hubName: "Home Hub - المنطقة الصناعية (زون A4)",
+          city: "مدينة 6 أكتوبر",
+          governorate: "الجيزة",
+          coverageRadiusKm: 10,
+          vehicleType: "تروسيكل نقل بضائع / فانيت",
+          nationalId: parsed.nationalId || localStorage.getItem("user_national_id") || "",
+          rating: 4.9,
+          totalCollectedOrders: 0,
+          totalPackagesBuilt: 0,
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      fullName: localStorage.getItem("user_name") || "",
+      phone: localStorage.getItem("user_phone") || "",
+      email: localStorage.getItem("user_email") || "",
+      hubName: "Home Hub - المنطقة الصناعية (زون A4)",
+      city: "مدينة 6 أكتوبر",
+      governorate: "الجيزة",
+      coverageRadiusKm: 10,
+      vehicleType: "تروسيكل نقل بضائع / فانيت",
+      nationalId: localStorage.getItem("user_national_id") || "",
+      rating: 4.9,
+      totalCollectedOrders: 0,
+      totalPackagesBuilt: 0,
+    };
+  };
 
+  const [profileData, setProfileData] = useState(getInitialCollectorData);
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    let isMounted = true;
+    authService.getMe().then((me) => {
+      if (me && isMounted) {
+        setProfileData((prev) => ({
+          ...prev,
+          fullName: me.name || prev.fullName,
+          phone: me.phone || prev.phone,
+          email: me.email || prev.email,
+          nationalId: me.nationalId || prev.nationalId,
+        }));
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await authService.updateProfile({
+        name: profileData.fullName,
+        phone: profileData.phone,
+        nationalId: profileData.nationalId,
+      });
       setSuccessMessage(
-        isRtl ? "تم حفظ البيانات بنجاح!" : "Profile updated successfully!",
+        isRtl ? "تم حفظ البيانات بنجاح في قاعدة البيانات!" : "Profile updated successfully!",
       );
+      setTimeout(() => setSuccessMessage(""), 3500);
+    } catch {
+      setSuccessMessage(isRtl ? "تم حفظ البيانات محلياً" : "Saved locally");
       setTimeout(() => setSuccessMessage(""), 3000);
-    }, 600);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const t = {
