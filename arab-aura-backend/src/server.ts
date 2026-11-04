@@ -50,8 +50,9 @@ app.get("/", (_req, res) => {
 // معالج الأخطاء المركزي
 app.use(errorHandler);
 
-const server = app.listen(PORT, () => {
-  console.log(`
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`
   ══════════════════════════════════════════════════════════
   🚀 [Arab Aura Backend Server Running]
   📡 Local API URL:  http://localhost:${PORT}/api
@@ -59,6 +60,7 @@ const server = app.listen(PORT, () => {
   🌐 CORS Allowed:   Web SPA (5173) + Mobile App Clients
   ══════════════════════════════════════════════════════════
   `);
-});
+  });
+}
 
 export default app;
