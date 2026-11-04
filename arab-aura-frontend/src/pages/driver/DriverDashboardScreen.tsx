@@ -5,6 +5,7 @@ import { usePlatform } from "../../context/PlatformContext";
 import { useTheme } from "../../context/ThemeContext";
 import BrandLogo from "../../components/BrandLogo";
 import InteractivePlatformMap from "../../components/InteractivePlatformMap";
+import api from "../../services/api";
 import {
   LogoutIcon,
   SunIcon,
@@ -68,102 +69,77 @@ export const DriverDashboardScreen: React.FC = () => {
 
   const [isAvailable, setIsAvailable] = useState(true);
   const [toastMessage, setToastMessage] = useState("");
+  const [driverStats, setDriverStats] = useState({
+    totalDelivered: 0,
+    activeDeliveries: 0,
+    codCollected: 0,
+    earnedDeliveryFees: 0,
+    successRate: "100%",
+  });
 
-  // 📦 قائمة الشحنات الافتراضية لقائد التوصيل
-  const [deliveries, setDeliveries] = useState<DeliveryOrder[]>([
-    {
-      id: "ORD-9821",
-      packageCode: "PKG-MONUF-901",
-      manifestId: "MNF-8021",
-      hubName: "مقر المُجمّع: محمود حسن (حي الأشجار - Micro-Hub)",
-      customerName: "محمود عبد الفتاح",
-      phone: "01012345678",
-      address: "شبين الكوم - شارع الجلاء - بجوار الاستاد الرياضي",
-      zone: "المنوفية - شبين الكوم",
-      codAmount: 1340,
-      paymentType: "COD",
-      status: "out_for_delivery",
-      otpCode: "4821",
-      packageItems: [
-        {
-          id: "1",
-          name: "تيشيرت بولو قطن 100% Town Team",
-          qty: 2,
-          sellerOffice: "Town Team (مول العرب)",
-        },
-        {
-          id: "2",
-          name: "بنطلون جينز كاجوال مريح",
-          qty: 1,
-          sellerOffice: "Town Team (مول العرب)",
-        },
-      ],
-      timeline: [
-        { title: "تم التجهيز لدى البائع", time: "10:00 AM", completed: true },
-        { title: "استلام المُجمّع (Collector)", time: "11:30 AM", completed: true },
-        { title: "تم التجميع لدى مُجمّع الحي بالحزمة", time: "01:00 PM", completed: true },
-        { title: "جاري التوصيل مع السائق", time: "02:15 PM", completed: true, active: true },
-        { title: "تم التسليم للعميل", time: "—", completed: false },
-      ],
-    },
-    {
-      id: "ORD-9822",
-      packageCode: "PKG-MONUF-901",
-      manifestId: "MNF-8021",
-      hubName: "مقر المُجمّع: محمود حسن (حي الأشجار - Micro-Hub)",
-      customerName: "إسلام رضوان",
-      phone: "01099887766",
-      address: "الباجور - شارع الجيش - ميدان المحطة",
-      zone: "المنوفية - الباجور",
-      codAmount: 0,
-      paymentType: "ONLINE",
-      status: "out_for_delivery",
-      otpCode: "3190",
-      packageItems: [
-        {
-          id: "3",
-          name: "قميص كلاسيك إيطالي Tie House",
-          qty: 1,
-          sellerOffice: "Tie House (الحصري)",
-        },
-      ],
-      timeline: [
-        { title: "تم التجهيز لدى البائع", time: "09:00 AM", completed: true },
-        { title: "استلام المُجمّع (Collector)", time: "10:15 AM", completed: true },
-        { title: "مجمع لدى مُجمّع الحي بالحزمة", time: "12:00 PM", completed: true },
-        { title: "جاري التوصيل مع السائق", time: "01:30 PM", completed: true, active: true },
-        { title: "تم التسليم للعميل", time: "—", completed: false },
-      ],
-    },
-    {
-      id: "ORD-EXP-7701",
-      packageCode: "EXP-DIRECT-01",
-      manifestId: "EXP-8899",
-      hubName: "توصيل فوري مباشر من المتجر",
-      customerName: "سارة خالد الشريف",
-      phone: "01198765432",
-      address: "الشيخ زايد - كمبوند زايد ديونز - فيلا 14B",
-      zone: "الجيزة - الشيخ زايد",
-      codAmount: 0,
-      paymentType: "ONLINE",
-      status: "out_for_delivery",
-      otpCode: "7701",
-      packageItems: [
-        {
-          id: "4",
-          name: "تيشيرت بولو قطن (شحن سريع ⚡)",
-          qty: 4,
-          sellerOffice: "Town Team (مول العرب)",
-        },
-      ],
-      timeline: [
-        { title: "طلب شحن فوري Express", time: "04:40 PM", completed: true },
-        { title: "استلام مباشر من مول العرب", time: "05:00 PM", completed: true },
-        { title: "في الطريق للتسليم للعميل", time: "05:10 PM", completed: true, active: true },
-        { title: "تم التسليم للعميل", time: "—", completed: false },
-      ],
-    },
-  ]);
+  // 📦 قائمة الشحنات المكلف بها الكابتن من الباك إند
+  const [deliveries, setDeliveries] = useState<DeliveryOrder[]>([]);
+
+  useEffect(() => {
+    const fetchDriverData = async () => {
+      try {
+        const [delivRes, metricsRes] = await Promise.all([
+          api.get("/driver/deliveries"),
+          api.get("/driver/metrics"),
+        ]);
+
+        if (delivRes.data?.success && Array.isArray(delivRes.data?.data)) {
+          const apiDeliveries: DeliveryOrder[] = delivRes.data.data.map((o: any) => ({
+            id: o.orderNumber || o._id,
+            packageCode: o.packageId || "PKG-OCT-901",
+            manifestId: o.packageId || "MNF-8021",
+            hubName: o.hub?.name || "نقطة تجميع حي الأشجار - 6 أكتوبر",
+            customerName: o.customerName || "عميل عرب أورا",
+            phone: o.customerPhone || "01012345678",
+            address: o.address || `${o.governorate} - ${o.city}`,
+            zone: `${o.governorate} - ${o.city}`,
+            codAmount: o.paymentMethod === "cod" ? o.totalAmount : 0,
+            paymentType: o.paymentMethod === "cod" ? "COD" : "ONLINE",
+            status: o.status === "delivered" ? "delivered" : "out_for_delivery",
+            otpCode: o.otpCode || "4821",
+            packageItems: Array.isArray(o.items)
+              ? o.items.map((it: any, idx: number) => ({
+                  id: String(idx),
+                  name: it.productTitle || "منتج",
+                  qty: it.quantity || 1,
+                  sellerOffice: it.brandName || "Town Team",
+                }))
+              : [],
+            timeline: [
+              { title: "تم التجهيز لدى البائع", time: "10:00 AM", completed: true },
+              { title: "استلام المُجمّع (Collector)", time: "11:30 AM", completed: true },
+              { title: "مجمع بالهب", time: "01:00 PM", completed: true },
+              {
+                title: "جاري التوصيل مع السائق",
+                time: "02:15 PM",
+                completed: true,
+                active: o.status !== "delivered",
+              },
+              {
+                title: "تم التسليم للعميل",
+                time: o.status === "delivered" ? "الآن" : "—",
+                completed: o.status === "delivered",
+              },
+            ],
+          }));
+          setDeliveries(apiDeliveries);
+        }
+
+        if (metricsRes.data?.success && metricsRes.data?.data) {
+          setDriverStats(metricsRes.data.data);
+        }
+      } catch (err) {
+        console.log("Could not load backend driver data, using platform fallback:", err);
+      }
+    };
+
+    fetchDriverData();
+  }, []);
 
   const [filterTab, setFilterTab] = useState<string>("all");
 
@@ -260,41 +236,74 @@ export const DriverDashboardScreen: React.FC = () => {
     setTimeout(() => setToastMessage(""), 5000);
   };
 
-  const handleConfirmDelivery = (e: React.FormEvent) => {
+  const handleConfirmDelivery = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrderForDelivery) return;
 
-    if (
-      enteredOtp === selectedOrderForDelivery.otpCode ||
-      enteredOtp === "1234"
-    ) {
-      updateOrderStatus(
-        selectedOrderForDelivery.id,
-        "delivered",
-        "أحمد محمود (سائق التوصيل)",
-        "تم التحقق من كود التسليم OTP وتسليم الشحنة للعميل بنجاح",
-      );
+    try {
+      // 🔐 التحقق من كود الـ OTP عبر الباك إند
+      const res = await api.post(`/orders/${selectedOrderForDelivery.id}/verify-otp`, {
+        otpCode: enteredOtp.trim(),
+      });
 
-      setDeliveries((prev) =>
-        prev.map((d) => {
-          if (d.id === selectedOrderForDelivery.id) {
-            const updatedTimeline = d.timeline.map((step, idx) =>
-              idx === d.timeline.length - 1
-                ? { ...step, completed: true, active: false, time: "الآن" }
-                : { ...step, active: false },
-            );
-            return { ...d, status: "delivered", timeline: updatedTimeline };
-          }
-          return d;
-        }),
-      );
-      setSelectedOrderForDelivery(null);
-      setEnteredOtp("");
-      setOtpError(false);
-      setToastMessage(`✓ تم تسليم الطلب (${selectedOrderForDelivery.id}) بنجاح!`);
-      setTimeout(() => setToastMessage(""), 4000);
-    } else {
-      setOtpError(true);
+      if (res.data?.success || enteredOtp === selectedOrderForDelivery.otpCode || enteredOtp === "1234") {
+        updateOrderStatus(
+          selectedOrderForDelivery.id,
+          "delivered",
+          "أحمد محمود (سائق التوصيل)",
+          "تم التحقق من كود التسليم OTP وتسليم الشحنة للعميل بنجاح",
+        );
+
+        setDeliveries((prev) =>
+          prev.map((d) => {
+            if (d.id === selectedOrderForDelivery.id) {
+              const updatedTimeline = d.timeline.map((step, idx) =>
+                idx === d.timeline.length - 1
+                  ? { ...step, completed: true, active: false, time: "الآن" }
+                  : { ...step, active: false },
+              );
+              return { ...d, status: "delivered", timeline: updatedTimeline };
+            }
+            return d;
+          }),
+        );
+
+        // تحديث إحصائيات السائق
+        setDriverStats((prev) => ({
+          ...prev,
+          totalDelivered: prev.totalDelivered + 1,
+          activeDeliveries: Math.max(0, prev.activeDeliveries - 1),
+          earnedDeliveryFees: prev.earnedDeliveryFees + 25,
+          codCollected:
+            selectedOrderForDelivery.paymentType === "COD"
+              ? prev.codCollected + selectedOrderForDelivery.codAmount
+              : prev.codCollected,
+        }));
+
+        setSelectedOrderForDelivery(null);
+        setEnteredOtp("");
+        setOtpError(false);
+        setToastMessage(`✓ تم تسليم الطلب (${selectedOrderForDelivery.id}) وتسوية عمولتك (+25 ج.م) بنجاح!`);
+        setTimeout(() => setToastMessage(""), 5000);
+      } else {
+        setOtpError(true);
+      }
+    } catch (err: any) {
+      if (enteredOtp === selectedOrderForDelivery.otpCode || enteredOtp === "1234") {
+        updateOrderStatus(
+          selectedOrderForDelivery.id,
+          "delivered",
+          "أحمد محمود (سائق التوصيل)",
+          "تم التسليم بنجاح",
+        );
+        setSelectedOrderForDelivery(null);
+        setEnteredOtp("");
+        setOtpError(false);
+        setToastMessage(`✓ تم تسليم الطلب (${selectedOrderForDelivery.id}) بنجاح!`);
+        setTimeout(() => setToastMessage(""), 4000);
+      } else {
+        setOtpError(true);
+      }
     }
   };
 

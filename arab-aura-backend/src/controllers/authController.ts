@@ -89,6 +89,8 @@ export const register = async (req: Request, res: Response) => {
       name: user.name,
     });
 
+    const profileCompleted = Boolean(user.phone && user.nationalId);
+
     return sendSuccess(
       res,
       "تم إنشاء الحساب بنجاح",
@@ -104,6 +106,7 @@ export const register = async (req: Request, res: Response) => {
           nationalId: user.nationalId,
           birthDate: user.birthDate,
           walletBalance: user.walletBalance,
+          profileCompleted,
         },
       },
       201
@@ -155,6 +158,8 @@ export const login = async (req: Request, res: Response) => {
       name: user.name,
     });
 
+    const profileCompleted = Boolean(user.phone && user.nationalId);
+
     return sendSuccess(res, "تم تسجيل الدخول بنجاح", {
       token,
       user: {
@@ -165,7 +170,10 @@ export const login = async (req: Request, res: Response) => {
         role: user.role,
         phone: user.phone,
         avatar: user.avatar,
+        nationalId: user.nationalId,
+        birthDate: user.birthDate,
         walletBalance: user.walletBalance || 0,
+        profileCompleted,
       },
     });
   } catch (err: any) {
@@ -216,6 +224,8 @@ export const googleAuth = async (req: Request, res: Response) => {
       name: user.name,
     });
 
+    const profileCompleted = Boolean(user.phone && user.nationalId);
+
     return sendSuccess(res, "تم تسجيل الدخول بحساب Google بنجاح", {
       token,
       user: {
@@ -226,7 +236,10 @@ export const googleAuth = async (req: Request, res: Response) => {
         role: user.role,
         phone: user.phone,
         avatar: user.avatar,
+        nationalId: user.nationalId,
+        birthDate: user.birthDate,
         walletBalance: user.walletBalance || 0,
+        profileCompleted,
       },
     });
   } catch (err: any) {
@@ -245,9 +258,51 @@ export const getMe = async (req: AuthenticatedRequest, res: Response) => {
       return sendError(res, "المستخدم غير موجود", 404);
     }
 
-    return sendSuccess(res, "بيانات المستخدم الحالي", user);
+    const profileCompleted = Boolean(user.phone && user.nationalId);
+
+    return sendSuccess(res, "بيانات المستخدم الحالي", {
+      ...user.toObject(),
+      profileCompleted,
+    });
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ في جلب بيانات الحساب", 500);
+  }
+};
+
+export const updateProfile = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) return sendError(res, "غير مصرح", 401);
+
+    const { name, phone, nationalId, birthDate, username, avatar } = req.body;
+
+    const updates: any = {};
+    if (name) updates.name = name;
+    if (phone) updates.phone = phone;
+    if (nationalId) updates.nationalId = nationalId;
+    if (birthDate) updates.birthDate = birthDate;
+    if (avatar) updates.avatar = avatar;
+
+    if (username) {
+      const cleanUsername = username.trim().toLowerCase();
+      const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
+      if (existing) {
+        return sendError(res, "اسم المستخدم مستخدم بالفعل من قبل شخص آخر", 409);
+      }
+      updates.username = cleanUsername;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, updates, {
+      new: true,
+    }).select("-password");
+
+    const profileCompleted = Boolean(updatedUser?.phone && updatedUser?.nationalId);
+
+    return sendSuccess(res, "تم استكمال وتحديث الملف الشخصي بنجاح", {
+      ...updatedUser?.toObject(),
+      profileCompleted,
+    });
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ في تحديث الملف الشخصي", 500);
   }
 };
 

@@ -86,8 +86,8 @@ export const CustomerCartPage: React.FC = () => {
   const [villageOrDistrict, setVillageOrDistrict] = useState("شارع الجلاء");
   const [street, setStreet] = useState("بجوار الاستاد الرياضي");
   const [buildingNumber, setBuildingNumber] = useState("عمارة 12، شقة 4");
-  const [phone, setPhone] = useState("01012345678");
-  const [fullName, setFullName] = useState("محمود عبد الفتاح");
+  const [phone, setPhone] = useState(() => localStorage.getItem("user_phone") || "01012345678");
+  const [fullName, setFullName] = useState(() => localStorage.getItem("user_name") || "عميل عرب أورا");
 
   // وسائل الدفع المتعددة
   type PaymentMethodType =
@@ -265,6 +265,18 @@ export const CustomerCartPage: React.FC = () => {
           lang === "ar"
             ? "يرجى إدخال بيانات البطاقة البنكية كاملة وصحيحة (16 رقماً، تاريخ الانتهاء، ورمز الأمان CVV)"
             : "Please enter complete card details (16 digits, MM/YY, CVV)",
+        );
+        return;
+      }
+    }
+
+    if (paymentMethod === "wallet") {
+      const storedBalance = Number(localStorage.getItem("user_wallet_balance") || 0);
+      if (storedBalance < totalAmount) {
+        setFormError(
+          lang === "ar"
+            ? `رصيد محفظتك الحالي (${storedBalance.toFixed(2)} ج.م) غير كافٍ لسداد إجمالي الطلب (${totalAmount.toFixed(2)} ج.م). يرجى شحن رصيدك من صفحة المحفظة أو اختيار الدفع عند الاستلام.`
+            : `Insufficient wallet balance (${storedBalance.toFixed(2)} EGP). Total is ${totalAmount.toFixed(2)} EGP. Please top up your wallet or choose COD.`,
         );
         return;
       }

@@ -15,6 +15,11 @@ export const api = axios.create({
 // 🔑 Interceptor لإضافة التوكن تلقائياً مع كل طلب
 api.interceptors.request.use(
   (config) => {
+    const directToken = localStorage.getItem("auth_token");
+    if (directToken) {
+      config.headers.Authorization = `Bearer ${directToken}`;
+      return config;
+    }
     const userData = localStorage.getItem("user_data");
     if (userData) {
       try {

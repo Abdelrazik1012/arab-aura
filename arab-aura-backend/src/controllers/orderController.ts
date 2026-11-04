@@ -2,6 +2,9 @@
 import { Request, Response } from "express";
 import { Order, IOrderItem } from "../models/Order";
 import { Hub } from "../models/Hub";
+import { User } from "../models/User";
+import { Brand } from "../models/Brand";
+import { WalletTransaction } from "../models/WalletTransaction";
 import { sendSuccess, sendError } from "../utils/response";
 import { AuthenticatedRequest } from "../types";
 
@@ -34,6 +37,34 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
     const shippingFee = shippingType === "express" ? 60.0 : 35.0;
     const totalAmount = itemsTotal + shippingFee;
 
+    // التحقق من الدفع عبر المحفظة
+    if (paymentMethod === "wallet") {
+      if (!req.user) {
+        return sendError(res, "يجب تسجيل الدخول للدفع عن طريق المحفظة", 401);
+      }
+      const buyer = await User.findById(req.user.id);
+      if (!buyer || buyer.walletBalance < totalAmount) {
+        return sendError(
+          res,
+          `رصيد المحفظة الحالي (${buyer?.walletBalance || 0} ج.م) غير كافٍ لتغطية إجمالي الطلب (${totalAmount} ج.م). يرجى شحن المحفظة أولاً أو اختيار الدفع عند الاستلام.`,
+          400
+        );
+      }
+      // خصم المبلغ من المحفظة
+      buyer.walletBalance -= totalAmount;
+      await buyer.save();
+
+      await WalletTransaction.create({
+        user: buyer._id,
+        amount: totalAmount,
+        type: "payment",
+        paymentMethod: "instapay",
+        titleAr: "سداد قيمة الطلب الشامل الشحن المجمع",
+        titleEn: "Order payment with consolidated delivery",
+        status: "completed",
+      });
+    }
+
     // توليد رقم أوردر فريد ورقم كود OTP سري من 4 أرقام
     const randNum = Math.floor(1000 + Math.random() * 9000);
     const orderNumber = `ORD-${Date.now().toString().slice(-4)}${randNum.toString().slice(-2)}`;
@@ -43,10 +74,13 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
     // ربط تلقائي بأقرب مركز تجميع في المنطقة
     const hub = await Hub.findOne({ active: true });
 
+    // البحث عن السائق المتاح
+    const driverUser = await User.findOne({ role: "driver", isOnline: true }) || await User.findOne({ role: "driver" });
+
     const formattedItems: IOrderItem[] = items.map((i: any) => ({
       product: i.productId || i.id,
       productTitle: i.productTitle || i.titleAr || i.title,
-      brandName: i.brandName || "براند مصري",
+      brandName: i.brandName || "Town Team",
       unitPrice: Number(i.unitPrice || i.price),
       quantity: Number(i.qty || i.quantity || 1),
       size: i.size || "L",
@@ -70,12 +104,13 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       totalAmount,
       paymentMethod,
       paymentStatus: paymentMethod === "cod" ? "unpaid" : "paid",
-      status: "collected_in_hub", // جاهزة بمركز التجميع للحي
+      status: "ready_for_collection", // جاهزة بانتظار استلام المُجمّع
       otpCode,
       packageId,
       hub: hub ? hub._id : undefined,
-      driverName: "الكابتن أحمد محمود",
-      driverPhone: "+201092242607",
+      driver: driverUser ? driverUser._id : undefined,
+      driverName: driverUser ? driverUser.name : "الكابتن أحمد محمود",
+      driverPhone: driverUser ? (driverUser.phone || "+201092242607") : "+201092242607",
       driverVehicle: "سيارة فان دايو كاري",
       driverPlate: "أ ب جـ 4589",
       items: formattedItems,
@@ -85,7 +120,7 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
 
     return sendSuccess(
       res,
-      `تم تأكيد طلبك بنجاح برقم: (${order.orderNumber})! سيتم التواصل معك للمعاينة عند الباب قبل السداد.`,
+      `تم تأكيد طلبك بنجاح برقم: (${order.orderNumber})! كود استلامك هو (${otpCode}).`,
       order,
       201
     );
@@ -150,7 +185,50 @@ export const verifyOtp = async (req: Request, res: Response) => {
     order.paymentStatus = "paid";
     await order.save();
 
-    return sendSuccess(res, "تم التحقق من الـ OTP وتسليم الشحنة بنجاح!", order);
+    // 💸 تسوية المستحقات المالية فورياً عند التسليم:
+    // 1. إضافة أرباح التاجر في محفظته
+    for (const item of order.items) {
+      const brand = await Brand.findOne({ name: item.brandName });
+      if (brand && brand.seller) {
+        const netItemRevenue = Math.round(item.unitPrice * item.quantity * 0.92);
+        const sellerUser = await User.findById(brand.seller);
+        if (sellerUser) {
+          sellerUser.walletBalance = (sellerUser.walletBalance || 0) + netItemRevenue;
+          await sellerUser.save();
+
+          await WalletTransaction.create({
+            user: sellerUser._id,
+            amount: netItemRevenue,
+            type: "deposit",
+            paymentMethod: "card",
+            titleAr: `أرباح مبيعات الطلب (${order.orderNumber}) بعد خصم عمولة 8%`,
+            titleEn: `Sales payout for order (${order.orderNumber}) after 8% platform fee`,
+            status: "completed",
+          });
+        }
+      }
+    }
+
+    // 2. إضافة عمولة التوصيل للكابتن (25 ج.م)
+    if (order.driver) {
+      const driverUser = await User.findById(order.driver);
+      if (driverUser) {
+        driverUser.walletBalance = (driverUser.walletBalance || 0) + 25;
+        await driverUser.save();
+
+        await WalletTransaction.create({
+          user: driverUser._id,
+          amount: 25,
+          type: "deposit",
+          paymentMethod: "card",
+          titleAr: `عمولة تسليم الشحنة (${order.orderNumber})`,
+          titleEn: `Delivery fee for order (${order.orderNumber})`,
+          status: "completed",
+        });
+      }
+    }
+
+    return sendSuccess(res, "تم التحقق من الـ OTP وتسليم الشحنة وتسوية الأرباح بنجاح!", order);
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ أثناء التحقق من الـ OTP", 500);
   }

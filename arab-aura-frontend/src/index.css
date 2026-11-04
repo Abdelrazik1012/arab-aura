@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
@@ -38,9 +39,21 @@
   border: none !important;
 }
 
+:root {
+  --font-arabic: 'IBM Plex Sans Arabic', 'IBMPlexArabic-Text', 'IBM Plex Sans', sans-serif;
+}
+
+@font-face {
+  font-family: 'IBMPlexArabic-Text';
+  src: local('IBM Plex Sans Arabic'), local('IBMPlexSansArabic');
+}
+
+*, body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, a, label, div {
+  font-family: 'IBM Plex Sans Arabic', 'IBMPlexArabic-Text', 'IBM Plex Sans', system-ui, -apple-system, sans-serif !important;
+}
+
 body {
   direction: rtl;
   background-color: #FDFBF7;
-  font-family: system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
 }

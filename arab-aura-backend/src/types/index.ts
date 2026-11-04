@@ -8,6 +8,7 @@ export interface JwtPayload {
   email: string;
   role: UserRole;
   name: string;
+  username?: string;
 }
 
 export interface AuthenticatedRequest extends Request {

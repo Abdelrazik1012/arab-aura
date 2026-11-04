@@ -642,6 +642,16 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
       if (stored) {
         return JSON.parse(stored);
       }
+      const userEmail = (localStorage.getItem("user_email") || "").toLowerCase();
+      const isDemo =
+        userEmail.includes("@aura.com") ||
+        userEmail.includes("demo") ||
+        !localStorage.getItem("auth_token");
+
+      if (!isDemo && userEmail) {
+        // مستخدم مسجل جديد يبدأ بحساب متصفر بالكامل وبدون طلبات وهمية
+        return [];
+      }
     } catch (e) {
       console.error("Error reading stored orders", e);
     }

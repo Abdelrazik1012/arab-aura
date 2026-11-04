@@ -17,46 +17,62 @@ const seedData = async () => {
     await mongoose.connect(mongoURI);
     console.log("🌱 [Seeding]: متصل بقاعدة بيانات مونجو بنجاح..");
 
-    // تنظيف البيانات السابقة
+    // مسح البيانات التجريبية السابقة مع الحفاظ على الحسابات الحقيقية
     await Promise.all([
-      User.deleteMany({}),
+      User.deleteMany({ email: { $in: ["customer@aura.com", "seller@aura.com", "collector@aura.com", "driver@aura.com", "admin@aura.com"] } }),
       Brand.deleteMany({}),
       Product.deleteMany({}),
       Hub.deleteMany({}),
-      Order.deleteMany({}),
+      Order.deleteMany({ customerName: { $in: ["أحمد عبد العزيز", "محمود عبد الفتاح", "إسلام رضوان", "سارة خالد الشريف", "عمر الألفي"] } }),
     ]);
-    console.log("🧹 [Seeding]: تم مسح البيانات القديمة.");
+    console.log("🧹 [Seeding]: تم تنظيف الحسابات التجريبية والطلبات السابقة.");
 
     // 1. إنشاء المستخدمين التجريبيين لكافة الأدوار
     const customer = await User.create({
       name: "أحمد عبد العزيز",
+      username: "customer",
       email: "customer@aura.com",
       password: "password123",
-      phone: "+201092242607",
+      phone: "+201012345678",
+      nationalId: "29801011401234",
+      birthDate: "1998-05-14",
+      walletBalance: 0,
       role: "customer",
     });
 
     const seller = await User.create({
       name: "مهندس كريم شريف (Town Team)",
+      username: "seller",
       email: "seller@aura.com",
       password: "password123",
       phone: "+201092242607",
+      nationalId: "29204121401999",
+      birthDate: "1992-04-12",
+      walletBalance: 0,
       role: "seller",
     });
 
     const collector = await User.create({
       name: "محمود حسن (مشرف مركز أكتوبر)",
+      username: "collector",
       email: "collector@aura.com",
       password: "password123",
-      phone: "+201092242607",
+      phone: "+201055443322",
+      nationalId: "29508101405555",
+      birthDate: "1995-08-10",
+      walletBalance: 0,
       role: "collector",
     });
 
     const driver = await User.create({
       name: "الكابتن أحمد محمود",
+      username: "driver",
       email: "driver@aura.com",
       password: "password123",
       phone: "+201092242607",
+      nationalId: "29611201407777",
+      birthDate: "1996-11-20",
+      walletBalance: 0,
       role: "driver",
       currentLat: 29.9723,
       currentLng: 30.9412,
@@ -65,13 +81,17 @@ const seedData = async () => {
 
     const admin = await User.create({
       name: "عبد الرازق بدر (المدير التنفيذي)",
+      username: "admin",
       email: "admin@aura.com",
       password: "password123",
       phone: "+201092242607",
+      nationalId: "20012121401234",
+      birthDate: "2001-12-14",
+      walletBalance: 0,
       role: "admin",
     });
 
-    console.log("✅ [Seeding]: تم إنشاء حسابات المستخدمين لكافة الأدوار.");
+    console.log("✅ [Seeding]: تم إنشاء حسابات المستخدمين لكافة الأدوار مع أسماء المستخدمين.");
 
     // 2. إنشاء البراندات المصرية
     const townTeam = await Brand.create({
@@ -98,105 +118,103 @@ const seedData = async () => {
       name: "RAVIN",
       nameAr: "رافين",
       descriptionAr: "تصميمات جريئة وعصرية تُلهم أصحاب الأذواق الرفيعة والشباب.",
-      descriptionEn: "Bold and trendy designs inspiring youth and refined tastes.",
-      bgImage: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1600&auto=format&fit=crop&q=80",
-      logoText: "RAVIN",
+      descriptionEn: "Bold and trendsetting styles for the youthful fashion enthusiast.",
+      bgImage: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=80",
+      logoText: "RAVIN JEANS",
       seller: seller._id,
     });
 
-    console.log("✅ [Seeding]: تم إنشاء البراندات المصرية الرئيسية.");
+    console.log("✅ [Seeding]: تم إدراج البراندات المصرية وتوثيقها.");
 
-    // 3. إنشاء مراكز التجميع بالأحياء (Micro-Hubs)
+    // 3. إنشاء نقاط ومراكز التجميع بالأحياء (Micro-Hubs)
     const hubOct = await Hub.create({
-      name: "6th of October Central Micro-Hub",
-      nameAr: "مركز تجميع حي الأشجار - 6 أكتوبر",
       code: "HUB-OCT-01",
+      name: "نقطة تجميع حي الأشجار - 6 أكتوبر",
+      nameAr: "نقطة تجميع حي الأشجار - 6 أكتوبر",
       governorate: "الجيزة",
       city: "6 أكتوبر",
-      address: "الحي المتميز - بجوار مول العرب وحي الأشجار",
+      address: "الحي المتميز - بالقرب من مول العرب وسيتي سكيب",
+      latitude: 29.9722,
+      longitude: 30.9419,
       collector: collector._id,
-      latitude: 29.9723,
-      longitude: 30.9412,
       active: true,
     });
 
-    const hubMonuf = await Hub.create({
-      name: "Shebin El-Kom Neighborhood Hub",
-      nameAr: "مركز توزيع شبين الكوم - المنوفية",
-      code: "HUB-MONUF-02",
+    const hubMnf = await Hub.create({
+      code: "HUB-MNF-02",
+      name: "نقطة تجميع شبين الكوم - المنوفية",
+      nameAr: "نقطة تجميع شبين الكوم - المنوفية",
       governorate: "المنوفية",
       city: "شبين الكوم",
-      address: "شارع الجلاء - بجوار الاستاد الرياضي",
+      address: "شارع الجلاء - مجمع المواقف المركزي",
+      latitude: 30.5593,
+      longitude: 31.0105,
       collector: collector._id,
-      latitude: 30.5603,
-      longitude: 31.0069,
       active: true,
     });
 
-    console.log("✅ [Seeding]: تم إنشاء مراكز التجميع (Micro-Hubs).");
+    console.log("✅ [Seeding]: تم إعداد مراكز التجميع المصغرة (Micro-Hubs).");
 
-    // 4. إنشاء المنتجات القطنية الفاخرة
+    // 4. إنشاء كتالوج المنتجات
     const productsData = [
       {
         brand: townTeam._id,
-        brandName: townTeam.name,
-        titleAr: "تيشيرت بولو قطن مصري فاخر",
-        titleEn: "Premium Egyptian Cotton Polo Shirt",
-        category: "men_tshirts",
+        brandName: "Town Team",
+        titleAr: "تيشيرت بولو قطن مصري فاخر ناعم",
+        titleEn: "Town Team Premium Egyptian Cotton Polo",
+        category: "tshirt",
         price: 490,
         oldPrice: 650,
-        sizes: ["S", "M", "L", "XL", "XXL"],
+        sizes: ["M", "L", "XL", "XXL"],
         colors: [
-          { nameAr: "أبيض ناصع", nameEn: "White", hex: "#FFFFFF" },
-          { nameAr: "كحلي ملكي", nameEn: "Navy", hex: "#1B2A4A" },
-          { nameAr: "رمادي هادئ", nameEn: "Muted Grey", hex: "#4A5568" },
+          { nameAr: "كحلي ملكي", nameEn: "Royal Navy", hex: "#1A2B4C" },
+          { nameAr: "أبيض ناصع", nameEn: "Pure White", hex: "#FFFFFF" },
+          { nameAr: "زيتي غامق", nameEn: "Dark Olive", hex: "#4B5320" },
         ],
-        rating: 5,
+        rating: 4.8,
         image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
-        additionalImages: [
-          "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80",
-        ],
-        badgeAr: "الأكثر مبيعاً",
+        additionalImages: [],
+        badgeAr: "الأعلى مبيعاً",
         badgeEn: "Best Seller",
-        descriptionAr: "مصنوع من أجود ألياف القطن المصري طويل التيلة، يمنحك ملمساً فائق النعومة وتهوية مثالية طوال اليوم.",
-        descriptionEn: "Crafted from Egyptian extra-long staple cotton for unmatched softness and breathability.",
-        stock: 85,
+        descriptionAr: "تيشيرت مصنوع من قطن جيزة 94 طويل التيلة، يوفر أقصى درجات النعومة والتهوية في الطقس الحار.",
+        descriptionEn: "Crafted with Giza 94 long-staple Egyptian cotton for ultimate breathability and refined elegance.",
+        stock: 50,
         deliveryTime: "خلال 24 ساعة",
         city: "6 أكتوبر",
         material: "قطن مصري 100%",
       },
       {
         brand: concrete._id,
-        brandName: concrete.name,
-        titleAr: "قميص كاجوال كتان ناعم مطرز",
-        titleEn: "Tailored Linen Casual Shirt",
-        category: "men_shirts",
+        brandName: "Concrete",
+        titleAr: "قميص كاجوال كتان ناعم مطرز أنيق",
+        titleEn: "Concrete Casual Soft Linen Shirt",
+        category: "shirt",
         price: 890,
-        oldPrice: 1150,
-        sizes: ["M", "L", "XL", "XXL"],
+        oldPrice: 1200,
+        sizes: ["S", "M", "L", "XL"],
         colors: [
-          { nameAr: "بيج طبيعي", nameEn: "Beige", hex: "#E2D4C3" },
+          { nameAr: "بيج طبيعي", nameEn: "Natural Beige", hex: "#D4C4A8" },
           { nameAr: "أزرق سماوي", nameEn: "Sky Blue", hex: "#87CEEB" },
         ],
-        rating: 5,
+        rating: 4.9,
         image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&q=80",
         additionalImages: [],
-        badgeAr: "فخامة مصرية",
-        badgeEn: "Pure Luxury",
-        descriptionAr: "تصميم أنيق بقصة عصرية متناسقة، مناسب لبيئة العمل والمناسبات الصيفية الخفيفة.",
-        descriptionEn: "A stylish tailored fit shirt suitable for modern work and leisure.",
-        stock: 45,
+        badgeAr: "خامة فاخرة",
+        badgeEn: "Premium Blend",
+        descriptionAr: "قميص رجالي مصمم بعناية فائقة من خيوط الكتان الطبيعية الممزوجة بالقطن لإطلالة صيفية جذابة ومريحة.",
+        descriptionEn: "Tailored fit shirt utilizing pure breathable linen for a sharp Mediterranean summer look.",
+        stock: 30,
         deliveryTime: "خلال 24 ساعة",
         city: "6 أكتوبر",
-        material: "كتان قطني فاخر",
+        material: "كتان 70% قطن 30%",
       },
       {
         brand: ravin._id,
-        brandName: ravin.name,
-        titleAr: "بنطلون جينز كلاسيك مريح سليم فيت",
-        titleEn: "Classic Slim-Fit Stretch Denim Jeans",
-        category: "men_pants",
-        price: 750,
+        brandName: "RAVIN",
+        titleAr: "بنطلون جينز سليم فيت ستريتش مريح",
+        titleEn: "RAVIN Slim-Fit Stretch Denim Jeans",
+        category: "pants",
+        price: 690,
         oldPrice: 920,
         sizes: ["30", "32", "34", "36", "38"],
         colors: [
@@ -220,62 +238,211 @@ const seedData = async () => {
     await Product.insertMany(productsData);
     console.log("✅ [Seeding]: تم إدراج المنتجات في قاعدة البيانات.");
 
-    // 5. إنشاء طلبات أولية جاهزة للاختبار
-    await Order.create({
-      orderNumber: "ORD-9821",
-      customer: customer._id,
-      customerName: customer.name,
-      customerPhone: customer.phone,
-      governorate: "الجيزة",
-      city: "6 أكتوبر",
-      address: "الحي المتميز - عمارة 14 - شقة 5",
-      shippingType: "standard",
-      shippingFee: 35.0,
-      itemsTotal: 1380,
-      totalAmount: 1415,
-      paymentMethod: "cod",
-      paymentStatus: "unpaid",
-      status: "collected_in_hub",
-      otpCode: "4821",
-      packageId: "PKG-OCT-7701",
-      hub: hubOct._id,
-      driver: driver._id,
-      driverName: driver.name,
-      driverPhone: driver.phone,
-      driverVehicle: "سيارة فان دايو كاري",
-      driverPlate: "أ ب جـ 4589",
-      items: [
-        {
-          productTitle: "تيشيرت بولو قطن مصري فاخر",
-          brandName: "Town Team",
-          unitPrice: 490,
-          quantity: 2,
-          size: "L",
-          color: "كحلي ملكي",
-          imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
-        },
-        {
-          productTitle: "قميص كاجوال كتان ناعم مطرز",
-          brandName: "Concrete",
-          unitPrice: 890,
-          quantity: 1,
-          size: "XL",
-          color: "بيج طبيعي",
-          imageUrl: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&q=80",
-        },
-      ],
-    });
+    // 5. إنشاء طلبات تجريبية واقعية موزعة على الأيام لمتجر Town Team والسائق التجريبي
+    const now = new Date();
+    const dMinus = (days: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - days);
+      return d;
+    };
 
-    console.log("✅ [Seeding]: تم إنشاء طلبات تجريبية بنظام الشحن المجمع بالحي (35 ج).");
+    const ordersData: any[] = [
+      {
+        orderNumber: "ORD-9821",
+        customer: customer._id,
+        customerName: "محمود عبد الفتاح",
+        customerPhone: "+201012345678",
+        governorate: "المنوفية",
+        city: "شبين الكوم",
+        address: "شارع الجلاء - بجوار الاستاد الرياضي",
+        shippingType: "standard",
+        shippingFee: 35.0,
+        itemsTotal: 1470,
+        totalAmount: 1505,
+        paymentMethod: "cod",
+        paymentStatus: "unpaid",
+        status: "out_for_delivery",
+        otpCode: "4821",
+        packageId: "PKG-MONUF-901",
+        hub: (hubMnf as any)._id,
+        driver: driver._id,
+        driverName: driver.name,
+        driverPhone: driver.phone,
+        driverVehicle: "سيارة فان دايو كاري",
+        driverPlate: "أ ب جـ 4589",
+        items: [
+          {
+            productTitle: "تيشيرت بولو قطن مصري فاخر ناعم",
+            brandName: "Town Team",
+            unitPrice: 490,
+            quantity: 3,
+            size: "L",
+            color: "كحلي ملكي",
+            imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
+          },
+        ],
+        createdAt: dMinus(0),
+      },
+      {
+        orderNumber: "ORD-9822",
+        customer: customer._id,
+        customerName: "إسلام رضوان",
+        customerPhone: "+201099887766",
+        governorate: "المنوفية",
+        city: "الباجور",
+        address: "شارع الجيش - ميدان المحطة",
+        shippingType: "standard",
+        shippingFee: 35.0,
+        itemsTotal: 980,
+        totalAmount: 1015,
+        paymentMethod: "instapay",
+        paymentStatus: "paid",
+        status: "out_for_delivery",
+        otpCode: "3190",
+        packageId: "PKG-MONUF-901",
+        hub: (hubMnf as any)._id,
+        driver: driver._id,
+        driverName: driver.name,
+        driverPhone: driver.phone,
+        driverVehicle: "سيارة فان دايو كاري",
+        driverPlate: "أ ب جـ 4589",
+        items: [
+          {
+            productTitle: "تيشيرت بولو قطن مصري فاخر ناعم",
+            brandName: "Town Team",
+            unitPrice: 490,
+            quantity: 2,
+            size: "XL",
+            color: "أبيض ناصع",
+            imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
+          },
+        ],
+        createdAt: dMinus(1),
+      },
+      {
+        orderNumber: "ORD-9820",
+        customer: customer._id,
+        customerName: "سارة خالد الشريف",
+        customerPhone: "+201198765432",
+        governorate: "الجيزة",
+        city: "الشيخ زايد",
+        address: "كمبوند زايد ديونز - فيلا 14B",
+        shippingType: "express",
+        shippingFee: 60.0,
+        itemsTotal: 1960,
+        totalAmount: 2020,
+        paymentMethod: "card",
+        paymentStatus: "paid",
+        status: "delivered",
+        otpCode: "7701",
+        packageId: "PKG-OCT-7701",
+        hub: (hubOct as any)._id,
+        driver: driver._id,
+        driverName: driver.name,
+        driverPhone: driver.phone,
+        driverVehicle: "سيارة فان دايو كاري",
+        driverPlate: "أ ب جـ 4589",
+        items: [
+          {
+            productTitle: "تيشيرت بولو قطن مصري فاخر ناعم",
+            brandName: "Town Team",
+            unitPrice: 490,
+            quantity: 4,
+            size: "L",
+            color: "كحلي ملكي",
+            imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
+          },
+        ],
+        createdAt: dMinus(2),
+      },
+      {
+        orderNumber: "ORD-9819",
+        customer: customer._id,
+        customerName: "عمر الألفي",
+        customerPhone: "+201022334455",
+        governorate: "الجيزة",
+        city: "6 أكتوبر",
+        address: "الحي الثاني - مجاورة 3",
+        shippingType: "standard",
+        shippingFee: 35.0,
+        itemsTotal: 1470,
+        totalAmount: 1505,
+        paymentMethod: "cod",
+        paymentStatus: "paid",
+        status: "delivered",
+        otpCode: "2201",
+        packageId: "PKG-OCT-7701",
+        hub: (hubOct as any)._id,
+        driver: driver._id,
+        driverName: driver.name,
+        driverPhone: driver.phone,
+        driverVehicle: "سيارة فان دايو كاري",
+        driverPlate: "أ ب جـ 4589",
+        items: [
+          {
+            productTitle: "تيشيرت بولو قطن مصري فاخر ناعم",
+            brandName: "Town Team",
+            unitPrice: 490,
+            quantity: 3,
+            size: "M",
+            color: "زيتي غامق",
+            imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
+          },
+        ],
+        createdAt: dMinus(3),
+      },
+      {
+        orderNumber: "ORD-9818",
+        customer: customer._id,
+        customerName: "أحمد عبد العزيز",
+        customerPhone: "+201012345678",
+        governorate: "الجيزة",
+        city: "6 أكتوبر",
+        address: "الحي المتميز - عمارة 14",
+        shippingType: "standard",
+        shippingFee: 35.0,
+        itemsTotal: 980,
+        totalAmount: 1015,
+        paymentMethod: "cod",
+        paymentStatus: "paid",
+        status: "delivered",
+        otpCode: "1198",
+        packageId: "PKG-OCT-7701",
+        hub: (hubOct as any)._id,
+        driver: driver._id,
+        driverName: driver.name,
+        driverPhone: driver.phone,
+        driverVehicle: "سيارة فان دايو كاري",
+        driverPlate: "أ ب جـ 4589",
+        items: [
+          {
+            productTitle: "تيشيرت بولو قطن مصري فاخر ناعم",
+            brandName: "Town Team",
+            unitPrice: 490,
+            quantity: 2,
+            size: "L",
+            color: "كحلي ملكي",
+            imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
+          },
+        ],
+        createdAt: dMinus(4),
+      },
+    ];
+
+    for (const o of ordersData) {
+      await Order.create(o);
+    }
+
+    console.log("✅ [Seeding]: تم إنشاء طلبات تجريبية واقعية موزعة بنجاح.");
     console.log(`
     ══════════════════════════════════════════════════════════
     🎉 تم ملء قاعدة بيانات مونجو بنجاح تام!
     🔑 بيانات تسجيل الدخول للاختبار:
-       - عميل / مشتري:   customer@aura.com / password123
-       - تاجر / براند:   seller@aura.com   / password123
-       - مُجمّع حي (Hub): collector@aura.com/ password123
-       - كابتن توصيل:    driver@aura.com   / password123
-       - مدير المنصة:     admin@aura.com    / password123
+       - عميل / مشتري:   customer@aura.com (يوزر: customer) / password123
+       - تاجر / براند:   seller@aura.com   (يوزر: seller)   / password123
+       - مُجمّع حي (Hub): collector@aura.com(يوزر: collector)/ password123
+       - كابتن توصيل:    driver@aura.com   (يوزر: driver)   / password123
+       - مدير المنصة:     admin@aura.com    (يوزر: admin)    / password123
     ══════════════════════════════════════════════════════════
     `);
 

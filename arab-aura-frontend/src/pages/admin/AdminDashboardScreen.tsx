@@ -37,21 +37,22 @@ export const AdminDashboardScreen: React.FC = () => {
 
   // 📊 مؤشرات النظام والتحليلات الشاملة
   const stats = {
-    totalUsers: "1,428",
-    activeMerchants: "86",
-    activeDrivers: "42",
-    activeCollectors: "18",
+    totalUsers: "6 مستخدمين موثقين",
+    activeMerchants: "3 براندات معتمدة",
+    activeDrivers: "كباتن متصلة GPS",
+    activeCollectors: "2 مراكز تجميع بالأحياء",
     totalOrdersCount: orders.length,
     deliveredCount: totalDelivered,
     successRate:
       orders.length > 0
         ? `${Math.round((totalDelivered / orders.length) * 100)}%`
-        : "94.2%",
-    failureRate: "5.8%",
-    platformEfficiency: isRtl ? "ممتازة ومستقرة" : "Optimal & Stable",
-    totalRevenueLastMonth: "380,000 EGP",
-    totalRevenueCurrentMonth: `${(482500 + totalRevenueNumber).toLocaleString()} EGP`,
-    activeDeliveriesToday: `${activeOrdersCount + 310}`,
+        : "100%",
+    failureRate: "0.0%",
+    platformEfficiency: isRtl ? "ممتازة ومستقرة (Live Sync)" : "Optimal & Stable",
+    totalRevenueLastMonth: "18,450 EGP",
+    totalRevenueCurrentMonth: `${totalRevenueNumber.toLocaleString()} EGP`,
+    platformCommission: `${Math.round(totalRevenueNumber * 0.08).toLocaleString()} EGP`,
+    activeDeliveriesToday: `${activeOrdersCount}`,
     pendingApprovalsCount: "2",
   };
 
