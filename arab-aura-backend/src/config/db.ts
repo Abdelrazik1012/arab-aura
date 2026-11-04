@@ -2,13 +2,18 @@
 import mongoose from "mongoose";
 
 export const connectDB = async (): Promise<void> => {
+  // تجنب إعادة الاتصال إذا كان الاتصال نشطاً بالفعل في بيئة Serverless
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+
   const mongoURI = process.env.MONGODB_URI;
 
   // 1. محاولة الاتصال بالرابط المعرف في .env (سواء كان محلياً أو كلاود Atlas)
   if (mongoURI) {
     try {
       const conn = await mongoose.connect(mongoURI, {
-        serverSelectionTimeoutMS: 3000,
+        serverSelectionTimeoutMS: 5000,
       });
       console.log(`✅ [MongoDB Connected]: ${conn.connection.host}/${conn.connection.name}`);
       return;
