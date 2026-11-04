@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
 import BrandLogo from "../../components/BrandLogo";
+import walletService from "../../services/walletService";
 import {
   SunIcon,
   MoonIcon,
@@ -19,7 +20,7 @@ import {
 
 interface Transaction {
   id: string;
-  type: "deposit" | "payment" | "refund" | "promo_bonus";
+  type: "deposit" | "payment" | "refund" | "promo_bonus" | "withdrawal";
   titleAr: string;
   titleEn: string;
   amount: number;
@@ -34,42 +35,40 @@ export const CustomerWalletPage: React.FC = () => {
   const { lang, toggleLanguage } = useLanguage();
   const { isDarkMode, toggleTheme } = useTheme();
 
-  // الرصيد والمعاملات
-  const [currentBalance, setCurrentBalance] = useState<number>(450.0);
-  const [promoBalance, setPromoBalance] = useState<number>(50.0);
+  // الرصيد والمعاملات - تبدأ متصفّرة (0.00 EGP) افتراضياً لأي حساب جديد
+  const [currentBalance, setCurrentBalance] = useState<number>(0.0);
+  const [promoBalance, setPromoBalance] = useState<number>(0.0);
   const currency = "EGP";
 
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: "tx-101",
-      type: "promo_bonus",
-      titleAr: "مكافأة برومو كود (RAMADAN50)",
-      titleEn: "Promo Code Bonus (RAMADAN50)",
-      amount: 50.0,
-      date: "2026-10-15",
-      status: "completed",
-      expiryDate: "2026-11-14",
-    },
-    {
-      id: "tx-102",
-      type: "payment",
-      titleAr: "شراء منتج: تيشيرت بولو قطن",
-      titleEn: "Purchase: Embroidered Polo Tee",
-      amount: -550.0,
-      date: "2026-10-12",
-      status: "completed",
-    },
-    {
-      id: "tx-103",
-      type: "deposit",
-      titleAr: "إيداع عن طريق فودافون كاش",
-      titleEn: "Top-up via Vodafone Cash",
-      amount: 700.0,
-      date: "2026-10-10",
-      status: "completed",
-      referenceNumber: "VF-9823411",
-    },
-  ]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // تحميل رصيد المحفظة والمعاملات الحقيقية من السيرفر
+  useEffect(() => {
+    const fetchWallet = async () => {
+      try {
+        const data = await walletService.getMyWallet();
+        setCurrentBalance(data.balance || 0);
+        if (data.transactions && data.transactions.length > 0) {
+          setTransactions(
+            data.transactions.map((t: any) => ({
+              id: t.id || t._id,
+              type: t.type,
+              titleAr: t.titleAr,
+              titleEn: t.titleEn,
+              amount: t.amount,
+              date: new Date(t.date || t.createdAt).toISOString().split("T")[0],
+              status: t.status || "completed",
+            }))
+          );
+        } else {
+          setTransactions([]);
+        }
+      } catch (err) {
+        console.warn("Wallet fetch fallback:", err);
+      }
+    };
+    fetchWallet();
+  }, []);
 
   // حالات الشحن والتحقق (Validation States)
   const [selectedMethod, setSelectedMethod] = useState<
@@ -101,7 +100,7 @@ export const CustomerWalletPage: React.FC = () => {
   } | null>(null);
 
   // 🔍 دالة فحص والتحقق من صحة المدخلات (Validation Engine)
-  const validateAndProcessTopUp = () => {
+  const validateAndProcessTopUp = async () => {
     setFormError(null);
     setFormSuccess(null);
 
@@ -170,26 +169,11 @@ export const CustomerWalletPage: React.FC = () => {
       }
     }
 
-    // 🚀 تنفيذ الطلب وتجهيز الـ Payload للباك إند
+    // 🚀 تنفيذ الطلب وإرساله إلى الباك إند
     setLoading(true);
-    setTimeout(() => {
-      const payloadReadyForBackend = {
-        method: selectedMethod,
-        amount: amountNum,
-        currency: "EGP",
-        details:
-          selectedMethod === "vodafone_cash"
-            ? { walletPhone }
-            : selectedMethod === "instapay"
-              ? { instapayUsername }
-              : selectedMethod === "card"
-                ? { cardNumber: cardNumber.slice(-4), cardExpiry } // إرسال آخر 4 أرقام فقط للأمان
-                : { paymentGateway: "Fawry_Pay" },
-      };
+    try {
+      await walletService.deposit(amountNum, selectedMethod);
 
-      console.log("[Backend API Payload Ready]:", payloadReadyForBackend);
-
-      // تحديث الرصيد والمعاملات محلياً كمحاكاة ناجحة
       const newTx: Transaction = {
         id: `tx-${Date.now()}`,
         type: "deposit",
@@ -214,10 +198,9 @@ export const CustomerWalletPage: React.FC = () => {
 
       setFormSuccess(
         lang === "ar"
-          ? `تم شحن المحفظة بنجاح بمبلغ ${amountNum} ج.م وتم تحديث الرصيد!`
-          : `Successfully topped up ${amountNum} EGP and balance updated!`,
+          ? `تم شحن المحفظة بنجاح بمبلغ ${amountNum} ج.م وتحديث الرصيد في السيرفر!`
+          : `Successfully topped up ${amountNum} EGP and balance updated on server!`,
       );
-      setLoading(false);
 
       // تفريغ المدخلات بعد النجاح
       setWalletPhone("");
@@ -225,7 +208,14 @@ export const CustomerWalletPage: React.FC = () => {
       setCardNumber("");
       setCardExpiry("");
       setCardCvv("");
-    }, 800);
+    } catch (err: any) {
+      setFormError(
+        err?.response?.data?.message ||
+          (lang === "ar" ? "فشل شحن المحفظة، يرجى المحاولة لاحقاً" : "Top-up failed, please try again")
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // تفعيل البرومو كود
@@ -729,15 +719,32 @@ export const CustomerWalletPage: React.FC = () => {
             </div>
 
             <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className={`p-4 rounded-2xl border flex items-center justify-between transition ${
-                    isDarkMode
-                      ? "bg-[#0F172A] border-slate-800"
-                      : "bg-slate-50 border-slate-200"
-                  }`}
-                >
+              {transactions.length === 0 ? (
+                <div className="text-center py-10 px-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl space-y-2">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-amber-400/10 flex items-center justify-center text-amber-500">
+                    <WalletIcon className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    {lang === "ar"
+                      ? "لا توجد أي معاملات سابقة حتى الآن"
+                      : "No transactions recorded yet"}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                    {lang === "ar"
+                      ? "رصيدك الحالي 0.00 ج.م. يمكنك شحن المحفظة أو التسوق وسيتم تسجيل كافة معاملاتك هنا تلقائياً."
+                      : "Your current balance is 0.00 EGP. Top up or start shopping to record your transactions here."}
+                  </p>
+                </div>
+              ) : (
+                transactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className={`p-4 rounded-2xl border flex items-center justify-between transition ${
+                      isDarkMode
+                        ? "bg-[#0F172A] border-slate-800"
+                        : "bg-slate-50 border-slate-200"
+                    }`}
+                  >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
@@ -793,7 +800,7 @@ export const CustomerWalletPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           </div>
         </div>

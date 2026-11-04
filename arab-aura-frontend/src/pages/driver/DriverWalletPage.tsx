@@ -29,33 +29,19 @@ export const DriverWalletPage: React.FC = () => {
   const { lang, toggleLanguage } = useLanguage();
   const { isDarkMode, toggleTheme } = useTheme();
 
-  // 💳 حالات المودال والتوريد
+  // 💳 حالات المودال والتوريد - تبدأ من الصفر لأي سائق جديد
+  const [codBalance, setCodBalance] = useState<number>(0.0);
+  const [settledBalance, setSettledBalance] = useState<number>(0.0);
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [settlementMethod, setSettlementMethod] = useState<
     "cash_to_hub" | "instapay"
   >("cash_to_hub");
-  const [settlementAmount, setSettlementAmount] = useState("2090");
+  const [settlementAmount, setSettlementAmount] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [settlementError, setSettlementError] = useState("");
 
   // 📜 سجل التوريدات الخزينة
-  const [records, setRecords] = useState<SettlementRecord[]>([
-    {
-      id: "SET-1021",
-      amount: 4500,
-      hubName: "خزينة نقطة المُجمّع المعتمد (حي الأشجار)",
-      method: "cash_to_hub",
-      status: "completed",
-      date: "2026-10-22 18:30",
-    },
-    {
-      id: "SET-1018",
-      amount: 3200,
-      hubName: "حساب الشركة (InstaPay)",
-      method: "instapay",
-      status: "completed",
-      date: "2026-10-21 19:10",
-    },
-  ]);
+  const [records, setRecords] = useState<SettlementRecord[]>([]);
 
   const isRtl = lang === "ar";
 
@@ -67,9 +53,27 @@ export const DriverWalletPage: React.FC = () => {
 
   const handleSettlementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!settlementAmount || Number(settlementAmount) <= 0) return;
+    setSettlementError("");
+    const amountNum = Number(settlementAmount);
+
+    if (!amountNum || amountNum <= 0) {
+      setSettlementError(isRtl ? "يرجى إدخال مبلغ صحيح أكبر من الصفر" : "Please enter a valid amount");
+      return;
+    }
+
+    if (amountNum > codBalance) {
+      setSettlementError(
+        isRtl
+          ? `عفواً، العهدة النقدية المعلقة لديك (${codBalance} ج.م) لا تكفي لتوريد ${amountNum} ج.م`
+          : `Insufficient COD balance (${codBalance} EGP) for settlement`
+      );
+      return;
+    }
 
     setIsSuccess(true);
+    setCodBalance((prev) => Math.max(0, prev - amountNum));
+    setSettledBalance((prev) => prev + amountNum);
+
     setTimeout(() => {
       const newRecord: SettlementRecord = {
         id: `SET-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -82,9 +86,10 @@ export const DriverWalletPage: React.FC = () => {
         status: "completed",
         date: new Date().toISOString().replace("T", " ").substring(0, 16),
       };
-      setRecords([newRecord, ...records]);
+      setRecords((prev) => [newRecord, ...prev]);
       setIsSuccess(false);
       setShowSettlementModal(false);
+      setSettlementAmount("");
     }, 1500);
   };
 
@@ -258,7 +263,7 @@ export const DriverWalletPage: React.FC = () => {
               {t.codBalance}
             </span>
             <h2 className="text-3xl font-black text-amber-500">
-              2,090 <span className="text-sm">EGP</span>
+              {codBalance.toLocaleString()} <span className="text-sm">EGP</span>
             </h2>
             <button
               onClick={() => setShowSettlementModal(true)}
@@ -275,7 +280,7 @@ export const DriverWalletPage: React.FC = () => {
               {t.settledBalance}
             </span>
             <h2 className="text-3xl font-black text-emerald-500">
-              7,700 <span className="text-sm">EGP</span>
+              {settledBalance.toLocaleString()} <span className="text-sm">EGP</span>
             </h2>
             <p
               className={`text-[11px] font-bold ${isDarkMode ? "text-white/50" : "text-slate-500"}`}
@@ -296,24 +301,32 @@ export const DriverWalletPage: React.FC = () => {
             <span>{isRtl ? "سجل عمليات التوريد وتسوية العهدة" : "Settlement & Deposit Logs"}</span>
           </div>
           <div className="divide-y divide-slate-200 dark:divide-slate-800">
-            {records.map((r) => (
-              <div
-                key={r.id}
-                className="p-4 flex justify-between items-center text-xs font-black"
-              >
-                <div>
-                  <span className="font-mono text-amber-500">{r.id}</span>
-                  <p className="text-sm pt-0.5">{r.amount} EGP</p>
-                  <span className="text-[10px] opacity-60">
-                    {r.hubName} • {r.date}
+            {records.length === 0 ? (
+              <div className="p-8 text-center text-xs font-bold text-slate-500">
+                {isRtl
+                  ? "لا توجد عهدة نقدية مسجلة أو مبالغ محصلة بحاجة للتوريد حالياً (0.00 EGP)."
+                  : "No pending COD settlements or cash records (0.00 EGP)."}
+              </div>
+            ) : (
+              records.map((r) => (
+                <div
+                  key={r.id}
+                  className="p-4 flex justify-between items-center text-xs font-black"
+                >
+                  <div>
+                    <span className="font-mono text-amber-500">{r.id}</span>
+                    <p className="text-sm pt-0.5">{r.amount} EGP</p>
+                    <span className="text-[10px] opacity-60">
+                      {r.hubName} • {r.date}
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] inline-flex items-center gap-1">
+                    <CheckCircleIcon className="w-3 h-3 text-emerald-500" />
+                    <span>{isRtl ? "مكتمل ومستلم" : "Completed"}</span>
                   </span>
                 </div>
-                <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] inline-flex items-center gap-1">
-                  <CheckCircleIcon className="w-3 h-3 text-emerald-500" />
-                  <span>{isRtl ? "مكتمل ومستلم" : "Completed"}</span>
-                </span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </main>

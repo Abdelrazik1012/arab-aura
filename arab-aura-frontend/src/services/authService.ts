@@ -2,16 +2,21 @@
 import api from "./api";
 
 export interface LoginCredentials {
-  email: string;
+  email?: string;
+  username?: string;
+  identifier?: string;
   password: string;
 }
 
 export interface RegisterData {
   name: string;
+  username?: string;
   email: string;
   password: string;
   phone?: string;
   role?: string;
+  nationalId?: string;
+  birthDate?: string;
   brandName?: string;
 }
 
@@ -45,6 +50,19 @@ export const authService = {
       return response.data.data;
     }
     throw new Error(response.data?.message || "فشل إنشاء الحساب");
+  },
+
+  async googleLogin(data: { email: string; name?: string; avatar?: string; role?: string }) {
+    const response = await api.post("/auth/google", data);
+    if (response.data?.success && response.data?.data) {
+      const { token, user } = response.data.data;
+      const normalizedRole = user.role === "customer" ? "user" : user.role;
+      localStorage.setItem("auth_token", token);
+      localStorage.setItem("user_data", JSON.stringify({ ...user, token }));
+      localStorage.setItem("user_role", normalizedRole);
+      return response.data.data;
+    }
+    throw new Error(response.data?.message || "فشل تسجيل الدخول بواسطة Google");
   },
 
   async getMe() {

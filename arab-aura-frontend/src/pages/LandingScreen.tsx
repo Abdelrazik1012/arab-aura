@@ -12,6 +12,7 @@ import {
   PackageIcon,
   BuildingIcon,
   CartIcon,
+  UserIcon,
   CloseIcon,
   CheckCircleIcon,
 } from "../components/Icons";
@@ -507,7 +508,7 @@ const LandingScreen: React.FC = () => {
         }
       `}</style>
 
-      {/* 🔝 النافبار العلوي */}
+      {/* 🔝 النافبار العلوي المتجاوب */}
       <header
         className={`sticky top-0 z-50 border-b shadow-sm transition-all duration-300 ${
           isDarkMode
@@ -515,47 +516,22 @@ const LandingScreen: React.FC = () => {
             : "bg-white border-slate-200"
         }`}
       >
-        <div
-          className={`transition-all duration-300 overflow-hidden ${
-            isScrolled
-              ? "max-h-0 opacity-0 py-0 border-none"
-              : "max-h-28 opacity-100 py-3"
-          }`}
-        >
-          <div className="max-w-7xl mx-auto px-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+        <div className="py-2.5 sm:py-3">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2">
               <span
                 onClick={() => setShowWelcomeScreen(true)}
                 className="cursor-pointer flex items-center"
                 title="العودة لواجهة الترحيب"
               >
-                <BrandLogo showText={false} />
+                <BrandLogo showText={true} />
               </span>
             </div>
 
-            <div className="flex-1 max-w-md relative flex items-center gap-2">
-              <div className="relative w-full">
-                <input
-                  type="text"
-                  placeholder={currentText.searchPlaceholder}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full border rounded-full px-10 py-1.5 text-xs focus:outline-none transition ${
-                    isDarkMode
-                      ? "bg-[#0F172A] border-slate-700 text-white focus:border-slate-500"
-                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-slate-400"
-                  }`}
-                />
-                <span className="absolute left-3 rtl:right-3 rtl:left-auto top-2.5 text-slate-400">
-                  <SearchIcon className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 order-2 md:order-3">
               <button
                 onClick={toggleTheme}
-                className={`p-1.5 px-3 border rounded-full text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                className={`p-1.5 sm:p-2 border rounded-full text-xs font-bold transition flex items-center justify-center cursor-pointer ${
                   isDarkMode
                     ? "bg-[#0F172A] border-slate-700 text-amber-400"
                     : "bg-slate-100 border-slate-200 text-slate-800"
@@ -566,7 +542,7 @@ const LandingScreen: React.FC = () => {
 
               <button
                 onClick={toggleLanguage}
-                className={`px-3 py-1 border rounded-full text-xs font-bold transition ${
+                className={`px-2.5 sm:px-3 py-1 border rounded-full text-xs font-bold transition ${
                   isDarkMode
                     ? "bg-[#0F172A] border-slate-700 text-slate-300"
                     : "bg-slate-100 border-slate-200 text-slate-800"
@@ -575,19 +551,38 @@ const LandingScreen: React.FC = () => {
                 {lang === "ar" ? "EN" : "عربي"}
               </button>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 <button
                   onClick={() => navigate("/login")}
-                  className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-full text-xs shadow-sm transition cursor-pointer"
+                  className="px-2.5 sm:px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-full text-xs shadow-sm transition cursor-pointer"
                 >
                   {currentText.loginBtn}
                 </button>
                 <button
                   onClick={() => navigate("/register")}
-                  className="px-3 py-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-full text-xs shadow-sm transition cursor-pointer"
+                  className="px-2.5 sm:px-3.5 py-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-full text-xs shadow-sm transition cursor-pointer"
                 >
                   {currentText.registerBtn}
                 </button>
+              </div>
+            </div>
+
+            <div className="w-full md:flex-1 md:max-w-md relative flex items-center gap-2 order-3 md:order-2 mt-1 md:mt-0">
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  placeholder={currentText.searchPlaceholder}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full border rounded-full px-9 py-2 text-xs focus:outline-none transition ${
+                    isDarkMode
+                      ? "bg-[#0F172A] border-slate-700 text-white focus:border-slate-500"
+                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-slate-400"
+                  }`}
+                />
+                <span className="absolute left-3 rtl:right-3 rtl:left-auto top-2.5 text-slate-400 pointer-events-none">
+                  <SearchIcon className="w-3.5 h-3.5" />
+                </span>
               </div>
             </div>
           </div>
@@ -628,13 +623,9 @@ const LandingScreen: React.FC = () => {
       </header>
 
       {/* المحتوى الرئيسي للمتجر */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col md:flex-row gap-6 mt-2">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-3 sm:p-4 md:p-6 flex flex-col md:flex-row gap-4 sm:gap-6 mt-2 pb-24 md:pb-6">
         <aside
-          className={`border rounded-2xl p-3 flex flex-col gap-2 shrink-0 shadow-sm transition-all duration-300 md:sticky md:top-20 h-fit ${
-            showSidebar
-              ? "w-full md:w-60 opacity-100"
-              : "w-0 opacity-0 overflow-hidden p-0"
-          } ${isDarkMode ? "bg-[#1E293B] border-slate-700" : "bg-white border-slate-200"}`}
+          className={`border rounded-2xl p-3 flex-col gap-2 shrink-0 shadow-sm transition-all duration-300 md:sticky md:top-20 h-fit hidden md:flex md:w-60 ${isDarkMode ? "bg-[#1E293B] border-slate-700" : "bg-white border-slate-200"}`}
         >
           <button
             onClick={() => {
@@ -702,23 +693,23 @@ const LandingScreen: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                 {filteredProducts.map((product) => (
                   <div
                     key={product.id}
-                    className={`notch-card border shadow-sm hover:shadow-md transition duration-300 p-4 flex flex-col justify-between ${
+                    className={`notch-card border shadow-sm hover:shadow-md transition duration-300 p-2.5 sm:p-4 flex flex-col justify-between ${
                       isDarkMode
                         ? "bg-[#1E293B] border-slate-700"
                         : "bg-white border-slate-200"
                     }`}
                   >
-                    <span className="notch-badge">{product.brandName}</span>
+                    <span className="notch-badge !text-[9px] sm:!text-[11px] !px-2 sm:!px-3 !py-0.5 sm:!py-1">{product.brandName}</span>
 
                     <div
-                      className="space-y-3 cursor-pointer"
+                      className="space-y-2 sm:space-y-3 cursor-pointer"
                       onClick={() => handleOpenProduct(product)}
                     >
-                      <div className="relative h-60 w-full rounded-xl overflow-hidden mt-1 bg-slate-100">
+                      <div className="relative h-36 sm:h-52 md:h-60 w-full rounded-xl overflow-hidden mt-1 bg-slate-100">
                         <img
                           src={product.image}
                           alt={product.titleAr}
@@ -727,13 +718,13 @@ const LandingScreen: React.FC = () => {
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex justify-between items-start gap-2">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-1 sm:gap-2">
                           <h3
-                            className={`text-xs font-bold leading-snug line-clamp-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                            className={`text-[11px] sm:text-xs font-bold leading-snug line-clamp-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
                           >
                             {lang === "ar" ? product.titleAr : product.titleEn}
                           </h3>
-                          <span className="px-2.5 py-1 text-xs font-black text-slate-900 bg-slate-100 rounded-lg shrink-0 font-mono">
+                          <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-black text-slate-900 bg-slate-100 rounded-lg shrink-0 font-mono">
                             {product.price.toFixed(0)} LE
                           </span>
                         </div>
@@ -1127,6 +1118,65 @@ const LandingScreen: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 📱 شريط التنقل السفلي الاحترافي للموبايل في واجهة المتجر */}
+      <nav
+        className={`md:hidden fixed bottom-0 inset-x-0 z-40 border-t backdrop-blur-lg flex items-center justify-around py-2 px-1 transition-all ${
+          isDarkMode
+            ? "bg-[#1E293B]/95 border-slate-700 text-white"
+            : "bg-white/95 border-slate-200 text-slate-900 shadow-lg"
+        }`}
+      >
+        <button
+          onClick={() => {
+            setSelectedBrandFilter(null);
+            setActiveTab("products");
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition cursor-pointer ${
+            activeTab === "products"
+              ? "text-amber-500 font-black"
+              : "text-slate-400 font-medium"
+          }`}
+        >
+          <PackageIcon className="w-5 h-5" />
+          <span className="text-[10px] font-bold">{currentText.sidebar.products}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("brands")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition cursor-pointer ${
+            activeTab === "brands"
+              ? "text-amber-500 font-black"
+              : "text-slate-400 font-medium"
+          }`}
+        >
+          <BuildingIcon className="w-5 h-5" />
+          <span className="text-[10px] font-bold">{currentText.sidebar.brands}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("orders")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition cursor-pointer relative ${
+            activeTab === "orders"
+              ? "text-rose-500 font-black"
+              : "text-slate-400 font-medium"
+          }`}
+        >
+          <CartIcon className="w-5 h-5" />
+          <span className="text-[10px] font-bold">{currentText.sidebar.orders}</span>
+          {cartItems.length > 0 && (
+            <span className="absolute top-0 right-2 w-2 h-2 rounded-full bg-rose-500" />
+          )}
+        </button>
+
+        <button
+          onClick={() => navigate("/login")}
+          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition text-slate-400 font-medium hover:text-amber-500 cursor-pointer"
+        >
+          <UserIcon className="w-5 h-5" />
+          <span className="text-[10px] font-bold">{currentText.loginBtn}</span>
+        </button>
+      </nav>
 
       {/* 🔹 الفوتر الموحد للمنصة */}
       <GlobalFooter />

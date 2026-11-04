@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
 import BrandLogo from "../../components/BrandLogo";
+import api from "../../services/api";
 import {
   LogoutIcon,
   SunIcon,
@@ -22,16 +23,34 @@ export const SellerWalletPage: React.FC = () => {
 
   const { isDarkMode, toggleTheme } = useTheme();
 
-  // 💳 حالات مودال ونماذج السحب
+  // 💳 حالات المحفظة والأرصدة - تبدأ من الصفر لأي بائع جديد
+  const [availableBalance, setAvailableBalance] = useState<number>(0.0);
+  const [pendingBalance, setPendingBalance] = useState<number>(0.0);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawMethod, setWithdrawMethod] = useState<
     "instapay" | "wallet" | "bank"
   >("instapay");
-  const [withdrawAmount, setWithdrawAmount] = useState("21500");
-  const [accountDetail, setAccountDetail] = useState("01092242607");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [accountDetail, setAccountDetail] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [withdrawError, setWithdrawError] = useState("");
 
   const isRtl = lang === "ar";
+
+  useEffect(() => {
+    // جلب بيانات الرصيد الحقيقي من السيرفر إن وجد
+    const loadSellerWallet = async () => {
+      try {
+        const res = await api.get("/seller/metrics");
+        if (res.data?.success && res.data?.data) {
+          setAvailableBalance(res.data.data.walletBalance || res.data.data.totalRevenue || 0);
+        }
+      } catch {
+        setAvailableBalance(0);
+      }
+    };
+    loadSellerWallet();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("user_role");
@@ -41,13 +60,30 @@ export const SellerWalletPage: React.FC = () => {
 
   const handleWithdrawSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!withdrawAmount || Number(withdrawAmount) <= 0) return;
+    setWithdrawError("");
+    const amountNum = Number(withdrawAmount);
+
+    if (!amountNum || amountNum <= 0) {
+      setWithdrawError(isRtl ? "يرجى إدخال مبلغ صحيح أكبر من الصفر" : "Please enter a valid amount");
+      return;
+    }
+
+    if (amountNum > availableBalance) {
+      setWithdrawError(
+        isRtl
+          ? `عفواً، رصيدك المتاح (${availableBalance} ج.م) لا يكفي لسحب مبلغ ${amountNum} ج.م`
+          : `Insufficient balance (${availableBalance} EGP) for withdrawal`
+      );
+      return;
+    }
 
     setIsSuccess(true);
+    setAvailableBalance((prev) => Math.max(0, prev - amountNum));
     setTimeout(() => {
       setIsSuccess(false);
       setShowWithdrawModal(false);
-    }, 2000);
+      setWithdrawAmount("");
+    }, 1800);
   };
 
   const t = {
@@ -271,7 +307,7 @@ export const SellerWalletPage: React.FC = () => {
               {t.availableBalance}
             </span>
             <h2 className="text-3xl font-black text-indigo-600 dark:text-indigo-400">
-              21,500 <span className="text-sm">EGP</span>
+              {availableBalance.toLocaleString()} <span className="text-sm">EGP</span>
             </h2>
             <button
               onClick={() => setShowWithdrawModal(true)}
@@ -288,7 +324,7 @@ export const SellerWalletPage: React.FC = () => {
               {t.pendingBalance}
             </span>
             <h2 className="text-3xl font-black text-amber-500">
-              4,200 <span className="text-sm">EGP</span>
+              {pendingBalance.toLocaleString()} <span className="text-sm">EGP</span>
             </h2>
             <p
               className={`text-[11px] font-bold ${isDarkMode ? "text-white/50" : "text-slate-500"}`}
