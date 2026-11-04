@@ -1,0 +1,16 @@
+{
+  "name": "arab-aura-workspace",
+  "private": true,
+  "description": "Arab Aura - Monorepo root workspace with unified test suites",
+  "scripts": {
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd arab-aura-backend && npm test",
+    "test:frontend": "cd arab-aura-frontend && npm test",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:all": "npm run test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}

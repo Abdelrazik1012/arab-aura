@@ -949,6 +949,22 @@ export const CustomerCartPage: React.FC = () => {
                   </div>
                   {paymentMethod === "cod" && <CheckIcon className="w-3.5 h-3.5 text-amber-500" />}
                 </div>
+
+                {/* 7. رصيد محفظة المنصة */}
+                <div
+                  onClick={() => setPaymentMethod("wallet")}
+                  className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+                    paymentMethod === "wallet"
+                      ? "bg-amber-400/15 border-amber-400 text-amber-500"
+                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <WalletIcon className="w-4 h-4 text-amber-500" />
+                    <span>رصيد محفظة عرب أورا الرقمية (0.00 EGP)</span>
+                  </div>
+                  {paymentMethod === "wallet" && <CheckIcon className="w-3.5 h-3.5 text-amber-500" />}
+                </div>
               </div>
 
               {/* 🔹 تفاصيل وحقول وسيلة الدفع النشطة */}
