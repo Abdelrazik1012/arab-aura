@@ -40,6 +40,9 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
   { timestamps: true }
 );
 
+// ⚡ فهرس مركب لتسريع جلب كشف حساب المحفظة بترتيب الأحدث
+WalletTransactionSchema.index({ user: 1, createdAt: -1 });
+
 export const WalletTransaction = mongoose.model<IWalletTransaction>(
   "WalletTransaction",
   WalletTransactionSchema

@@ -70,6 +70,9 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
+// ⚡ فهرس مركب لتسريع تعيين وفرز السائقين النشطين
+UserSchema.index({ role: 1, isOnline: 1 });
+
 // تشفير كلمة المرور قبل الحفظ
 UserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;

@@ -119,5 +119,11 @@ const OrderSchema = new Schema<IOrder>(
   { timestamps: true }
 );
 
+// ⚡ فهارس مركبة لتسريع استعلامات الطلبات واللوجستيات
+OrderSchema.index({ customer: 1, createdAt: -1 });
+OrderSchema.index({ driver: 1, status: 1 });
+OrderSchema.index({ hub: 1, status: 1 });
+OrderSchema.index({ status: 1, createdAt: -1 });
+
 export const Order = mongoose.model<IOrder>("Order", OrderSchema);
 export default Order;

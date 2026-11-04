@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db";
 import apiRoutes from "./routes";
 import errorHandler from "./middleware/errorHandler";
+import { securityHeaders, globalRateLimiter } from "./middleware/security";
 
 dotenv.config();
 
@@ -13,6 +14,10 @@ const PORT = process.env.PORT || 8000;
 
 // الاتصال بقاعدة بيانات مونجو
 connectDB();
+
+// 🛡️ ترويسات الأمان ومحدد الطلبات العالمي
+app.use(securityHeaders);
+app.use(globalRateLimiter);
 
 // إعدادات CORS المتوافقة مع الويب وتطبيقات الموبايل
 app.use(
