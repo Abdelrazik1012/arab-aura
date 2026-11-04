@@ -822,7 +822,7 @@ export const CustomerCartPage: React.FC = () => {
                     value={buildingNumber}
                     onChange={(e) => setBuildingNumber(e.target.value)}
                     placeholder="مثال: عمارة 12 - شقة 4"
-                    className="w-full p-2.5 border rounded-xl bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-700 outline-none"
+                    className="w-full p-2.5 border rounded-xl bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white outline-none"
                   />
                 </div>
 
@@ -833,7 +833,7 @@ export const CustomerCartPage: React.FC = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="01012345678"
-                    className="w-full p-2.5 border rounded-xl bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-700 font-mono outline-none"
+                    className="w-full p-2.5 border rounded-xl bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono outline-none"
                   />
                 </div>
               </div>
@@ -992,7 +992,7 @@ export const CustomerCartPage: React.FC = () => {
                         value={senderWalletPhone}
                         onChange={(e) => setSenderWalletPhone(e.target.value)}
                         placeholder="01012345678"
-                        className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 font-mono"
+                        className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
                       />
                     </div>
 
@@ -1031,7 +1031,7 @@ export const CustomerCartPage: React.FC = () => {
                         value={instaPayAddress}
                         onChange={(e) => setInstaPayAddress(e.target.value)}
                         placeholder="username@instapay"
-                        className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 font-mono"
+                        className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
                       />
                     </div>
                   </div>
@@ -1059,7 +1059,7 @@ export const CustomerCartPage: React.FC = () => {
                         value={cardNumber}
                         onChange={(e) => setCardNumber(e.target.value)}
                         placeholder="4111 2222 3333 4444"
-                        className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 font-mono"
+                        className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -1071,7 +1071,7 @@ export const CustomerCartPage: React.FC = () => {
                           value={cardExpiry}
                           onChange={(e) => setCardExpiry(e.target.value)}
                           placeholder="MM/YY"
-                          className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 font-mono"
+                          className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
                         />
                       </div>
                       <div>
@@ -1082,7 +1082,7 @@ export const CustomerCartPage: React.FC = () => {
                           value={cardCvv}
                           onChange={(e) => setCardCvv(e.target.value)}
                           placeholder="123"
-                          className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 font-mono"
+                          className="w-full p-2.5 rounded-xl border bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
                         />
                       </div>
                     </div>

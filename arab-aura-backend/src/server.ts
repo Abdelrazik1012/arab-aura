@@ -55,7 +55,7 @@ app.get("/", (_req, res) => {
 // معالج الأخطاء المركزي
 app.use(errorHandler);
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
     console.log(`
   ══════════════════════════════════════════════════════════

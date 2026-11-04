@@ -273,7 +273,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   try {
     if (!req.user) return sendError(res, "غير مصرح", 401);
 
-    const { name, phone, nationalId, birthDate, username, avatar } = req.body;
+    const { name, phone, nationalId, birthDate, username, avatar, socialLinks } = req.body;
 
     const updates: any = {};
     if (name) updates.name = name;
@@ -281,6 +281,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     if (nationalId) updates.nationalId = nationalId;
     if (birthDate) updates.birthDate = birthDate;
     if (avatar) updates.avatar = avatar;
+    if (socialLinks) updates.socialLinks = socialLinks;
 
     if (username) {
       const cleanUsername = username.trim().toLowerCase();
@@ -297,8 +298,10 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
 
     const profileCompleted = Boolean(updatedUser?.phone && updatedUser?.nationalId);
 
+    const userObj = updatedUser?.toObject ? updatedUser.toObject() : updatedUser;
+
     return sendSuccess(res, "تم استكمال وتحديث الملف الشخصي بنجاح", {
-      ...updatedUser?.toObject(),
+      ...userObj,
       profileCompleted,
     });
   } catch (err: any) {

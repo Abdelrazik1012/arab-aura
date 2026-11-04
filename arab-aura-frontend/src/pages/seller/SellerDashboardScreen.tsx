@@ -38,6 +38,11 @@ export const SellerDashboardScreen: React.FC = () => {
       nationalId: parsed.nationalId || localStorage.getItem("user_national_id") || "",
       storeName: parsed.brandName || "متجر الملابس المحلي",
       payoutMethod: parsed.phone ? `Instapay (${parsed.phone})` : "Instapay",
+      socialLinks: parsed.socialLinks || {
+        instagram: "",
+        facebook: "",
+        tiktok: "",
+      },
     };
   });
 
@@ -860,6 +865,73 @@ export const SellerDashboardScreen: React.FC = () => {
                 <label
                   className={`block font-black mb-1 ${isDarkMode ? "text-white" : "text-black"}`}
                 >
+                  {isRtl ? "صفحات السوشيال ميديا للمتجر (استيراد المنتجات بالـ Scraper):" : "Store Social Media Links (For AI Scraper):"}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="url"
+                    placeholder="Instagram: https://..."
+                    value={sellerProfile.socialLinks?.instagram || ""}
+                    onChange={(e) =>
+                      setSellerProfile({
+                        ...sellerProfile,
+                        socialLinks: {
+                          ...sellerProfile.socialLinks,
+                          instagram: e.target.value,
+                        },
+                      })
+                    }
+                    className={`w-full p-2.5 border rounded-xl font-mono text-xs shadow-xs ${
+                      isDarkMode
+                        ? "bg-slate-950 text-white border-slate-700"
+                        : "bg-white text-black border-slate-400"
+                    }`}
+                  />
+                  <input
+                    type="url"
+                    placeholder="Facebook: https://..."
+                    value={sellerProfile.socialLinks?.facebook || ""}
+                    onChange={(e) =>
+                      setSellerProfile({
+                        ...sellerProfile,
+                        socialLinks: {
+                          ...sellerProfile.socialLinks,
+                          facebook: e.target.value,
+                        },
+                      })
+                    }
+                    className={`w-full p-2.5 border rounded-xl font-mono text-xs shadow-xs ${
+                      isDarkMode
+                        ? "bg-slate-950 text-white border-slate-700"
+                        : "bg-white text-black border-slate-400"
+                    }`}
+                  />
+                  <input
+                    type="url"
+                    placeholder="TikTok: https://..."
+                    value={sellerProfile.socialLinks?.tiktok || ""}
+                    onChange={(e) =>
+                      setSellerProfile({
+                        ...sellerProfile,
+                        socialLinks: {
+                          ...sellerProfile.socialLinks,
+                          tiktok: e.target.value,
+                        },
+                      })
+                    }
+                    className={`w-full p-2.5 border rounded-xl font-mono text-xs shadow-xs ${
+                      isDarkMode
+                        ? "bg-slate-950 text-white border-slate-700"
+                        : "bg-white text-black border-slate-400"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  className={`block font-black mb-1 ${isDarkMode ? "text-white" : "text-black"}`}
+                >
                   {t.payoutMethod}
                 </label>
                 <input
@@ -924,6 +996,7 @@ export const SellerDashboardScreen: React.FC = () => {
                         name: sellerProfile.fullName,
                         phone: sellerProfile.phone,
                         nationalId: sellerProfile.nationalId,
+                        socialLinks: sellerProfile.socialLinks,
                       });
                       localStorage.setItem("user_name", sellerProfile.fullName);
                       localStorage.setItem("user_phone", sellerProfile.phone);

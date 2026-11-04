@@ -23,6 +23,13 @@ export interface IUser extends Document {
   currentLat?: number;
   currentLng?: number;
   isOnline: boolean;
+  // 🌐 روابط السوشيال ميديا والمتاجر للتاجر
+  socialLinks?: {
+    instagram?: string;
+    facebook?: string;
+    tiktok?: string;
+    website?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -66,6 +73,12 @@ const UserSchema = new Schema<IUser>(
     currentLat: { type: Number },
     currentLng: { type: Number },
     isOnline: { type: Boolean, default: false },
+    socialLinks: {
+      instagram: { type: String, trim: true },
+      facebook: { type: String, trim: true },
+      tiktok: { type: String, trim: true },
+      website: { type: String, trim: true },
+    },
   },
   { timestamps: true }
 );
