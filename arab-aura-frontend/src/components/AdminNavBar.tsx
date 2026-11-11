@@ -29,30 +29,61 @@ export const AdminNavBar: React.FC<AdminNavBarProps> = ({
 
   const currentRole = localStorage.getItem("user_role") || "admin";
 
+  const ROLE_PRESETS: Record<
+    string,
+    { role: string; name: string; email: string; phone: string; path: string }
+  > = {
+    admin: {
+      role: "admin",
+      name: "عبد الرازق بدر (المدير التنفيذي)",
+      email: "admin@aura.com",
+      phone: "01092242607",
+      path: "/admin/dashboard",
+    },
+    seller: {
+      role: "seller",
+      name: "مهندس كريم شريف (Town Team)",
+      email: "seller@aura.com",
+      phone: "01122334455",
+      path: "/seller/dashboard",
+    },
+    driver: {
+      role: "driver",
+      name: "الكابتن أحمد محمود",
+      email: "driver@aura.com",
+      phone: "01092242607",
+      path: "/driver/dashboard",
+    },
+    collector: {
+      role: "collector",
+      name: "محمود حسن (مُجمّع)",
+      email: "collector@aura.com",
+      phone: "01233445566",
+      path: "/collector/dashboard",
+    },
+    user: {
+      role: "user",
+      name: "أحمد عبد العزيز (عميل)",
+      email: "customer@aura.com",
+      phone: "01012345678",
+      path: "/customer/products",
+    },
+  };
+
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedRole = e.target.value;
     if (currentRole === "admin" || !localStorage.getItem("original_admin")) {
       localStorage.setItem("original_admin", "true");
     }
-    localStorage.setItem("user_role", selectedRole);
 
-    switch (selectedRole) {
-      case "user":
-        navigate("/customer/products");
-        break;
-      case "seller":
-        navigate("/seller/dashboard");
-        break;
-      case "driver":
-        navigate("/driver/dashboard");
-        break;
-      case "collector":
-        navigate("/collector/dashboard");
-        break;
-      default:
-        navigate("/admin/dashboard");
-        break;
-    }
+    const preset = ROLE_PRESETS[selectedRole] || ROLE_PRESETS.user;
+    localStorage.setItem("user_role", preset.role);
+    localStorage.setItem("user_name", preset.name);
+    localStorage.setItem("user_email", preset.email);
+    localStorage.setItem("user_phone", preset.phone);
+    localStorage.setItem("user_data", JSON.stringify(preset));
+
+    navigate(preset.path);
   };
 
   const handleLogout = () => {

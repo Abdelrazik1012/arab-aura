@@ -14,6 +14,9 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState("");
+  const [googleName, setGoogleName] = useState("");
 
   // مصفوفة أزواج الصور المزدوجة للتبديل في الكروت
   const imagePairs = [
@@ -244,22 +247,35 @@ const LoginScreen: React.FC = () => {
     setLoading(false);
   };
 
-  // تسجيل سريع بحساب Google
-  const handleGoogleLogin = async () => {
+  // فتح نافذة Google أو الدخول المباشر
+  const handleGoogleClick = () => {
+    if (email.trim().includes("@")) {
+      setGoogleEmail(email.trim());
+      handleGoogleSubmit(email.trim());
+    } else {
+      setShowGoogleModal(true);
+    }
+  };
+
+  const handleGoogleSubmit = async (customEmail?: string) => {
+    const cleanEmail =
+      (typeof customEmail === "string" ? customEmail : googleEmail).trim().toLowerCase() ||
+      email.trim().toLowerCase() ||
+      "customer@gmail.com";
     setLoading(true);
     setErrorMsg("");
     try {
-      const demoEmail = email.trim() || "user_google@gmail.com";
       const data = await authService.googleLogin({
-        email: demoEmail,
-        name: demoEmail.split("@")[0],
+        email: cleanEmail,
+        name: googleName.trim() || cleanEmail.split("@")[0],
         role: "customer",
       });
-      redirectByRole(data.user.role);
+      setShowGoogleModal(false);
+      redirectByRole(data.user?.role || "user");
     } catch (err: any) {
       setErrorMsg(
         err?.response?.data?.message ||
-          (lang === "ar" ? "فشل تسجيل الدخول بـ Google" : "Google Sign-in failed")
+          (lang === "ar" ? "فشل تسجيل الدخول بـ Google" : "Google Sign-in failed"),
       );
     } finally {
       setLoading(false);
@@ -483,7 +499,7 @@ const LoginScreen: React.FC = () => {
               <div className="w-full pt-1">
                 <button
                   type="button"
-                  onClick={handleGoogleLogin}
+                  onClick={handleGoogleClick}
                   disabled={loading}
                   className={`w-full py-2.5 px-4 rounded-full border font-bold text-xs flex items-center justify-center gap-2.5 transition shadow-sm cursor-pointer ${
                     isDarkMode
@@ -511,67 +527,6 @@ const LoginScreen: React.FC = () => {
                   </svg>
                   <span>{lang === "ar" ? "المتابعة السريعة بواسطة Google" : "Continue with Google"}</span>
                 </button>
-              </div>
-
-              {/* ⚡ تعبئة سريعة لحسابات الاختبار والمناقشة بضغطة زر واحدة */}
-              <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
-                <p className="text-[10px] text-center font-bold text-gray-500 mb-2">
-                  {lang === "ar"
-                    ? "⚡ تجربة سريعة للحسابات المعتمدة (1-Click Fill):"
-                    : "⚡ Quick Demo Accounts (1-Click Fill):"}
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-black">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("admin@aura.com");
-                      setPassword("password123");
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 hover:bg-indigo-500/20 cursor-pointer transition"
-                  >
-                    🛡️ أدمن (Admin)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("seller@aura.com");
-                      setPassword("password123");
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer transition"
-                  >
-                    🏪 تاجر (Seller)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("driver@aura.com");
-                      setPassword("password123");
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 cursor-pointer transition"
-                  >
-                    🚚 كابتن (Driver)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("collector@aura.com");
-                      setPassword("password123");
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-500 border border-purple-500/20 hover:bg-purple-500/20 cursor-pointer transition"
-                  >
-                    📦 مُجمّع (Hub)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("customer@aura.com");
-                      setPassword("password123");
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 hover:bg-cyan-500/20 cursor-pointer transition"
-                  >
-                    🛍️ عميل (Customer)
-                  </button>
-                </div>
               </div>
 
               <div className="text-center space-y-2 pt-1">
@@ -614,6 +569,116 @@ const LoginScreen: React.FC = () => {
       >
         {currentData.footer}
       </footer>
+
+      {/* 🌐 مودال تسجيل الدخول الفوري بحساب Google */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className={`max-w-sm w-full p-6 rounded-3xl border shadow-2xl space-y-4 ${
+              isDarkMode
+                ? "bg-slate-900 border-slate-800 text-white"
+                : "bg-white border-slate-200 text-slate-900"
+            }`}
+          >
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-white p-2.5 shadow-md flex items-center justify-center border border-slate-200">
+                <svg className="w-7 h-7" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+              </div>
+              <h3 className="font-black text-lg">
+                {lang === "ar" ? "المتابعة بحساب Google" : "Sign in with Google"}
+              </h3>
+              <p className="text-xs opacity-70">
+                {lang === "ar"
+                  ? "سيتم تسجيل حسابك وتعيين كلمة المرور مساوية للجيميل تلقائياً"
+                  : "Your account will be registered with your Gmail"}
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleGoogleSubmit();
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block font-black mb-1 opacity-80">
+                  {lang === "ar" ? "الاسم الكامل:" : "Full Name:"}
+                </label>
+                <input
+                  type="text"
+                  placeholder="محمد أحمد"
+                  value={googleName}
+                  onChange={(e) => setGoogleName(e.target.value)}
+                  className={`w-full p-2.5 rounded-xl border font-bold outline-none ${
+                    isDarkMode
+                      ? "bg-slate-800 border-slate-700 text-white"
+                      : "bg-slate-50 border-slate-300 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-black mb-1 opacity-80">
+                  {lang === "ar" ? "بريد Gmail الخاص بك:" : "Your Gmail Address:"}
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="example@gmail.com"
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  className={`w-full p-2.5 rounded-xl border font-bold outline-none ${
+                    isDarkMode
+                      ? "bg-slate-800 border-slate-700 text-white"
+                      : "bg-slate-50 border-slate-300 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleModal(false)}
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black rounded-xl cursor-pointer"
+                >
+                  {lang === "ar" ? "إلغاء" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {loading
+                    ? lang === "ar"
+                      ? "جاري المتابعة..."
+                      : "Connecting..."
+                    : lang === "ar"
+                    ? "دخول فوري بحساب Google"
+                    : "Sign in with Google"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

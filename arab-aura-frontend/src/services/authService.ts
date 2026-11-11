@@ -122,6 +122,25 @@ export const authService = {
     }
   },
 
+  async forgotPassword(email: string) {
+    const response = await api.post("/auth/forgot-password", { email });
+    return response.data;
+  },
+
+  async verifyResetOtp(email: string, otpCode: string) {
+    const response = await api.post("/auth/verify-otp", { email, otpCode });
+    return response.data;
+  },
+
+  async resetPasswordWithOtp(email: string, otpCode: string, newPassword: string) {
+    const response = await api.post("/auth/reset-password", {
+      email,
+      otpCode,
+      newPassword,
+    });
+    return response.data;
+  },
+
   logout() {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_data");

@@ -15,6 +15,7 @@ import LoginScreen from "./pages/LoginScreen";
 import RegisterRoleScreen from "./pages/RegisterRoleScreen";
 import RegisterFormScreen from "./pages/RegisterFormScreen";
 import AboutUsPage from "./pages/AboutUsPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 
 // 👤 استدعاء صفحات موديول العميل (Customer Module)
 import CustomerProductsPage from "./pages/customer/CustomerProductsPage";
@@ -97,6 +98,7 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<LandingScreen />} />
         <Route path="/about" element={<AboutUsPage />} />
         <Route path="/login" element={<LoginScreen />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/register" element={<RegisterRoleScreen />} />
         <Route path="/register-form" element={<RegisterFormScreen />} />
 

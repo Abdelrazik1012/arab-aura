@@ -25,13 +25,64 @@ export const AdminFloatingWidget: React.FC = () => {
     return null;
   }
 
+  const ROLE_PRESETS: Record<
+    string,
+    { role: string; name: string; email: string; phone: string; path: string }
+  > = {
+    admin: {
+      role: "admin",
+      name: "عبد الرازق بدر (المدير التنفيذي)",
+      email: "admin@aura.com",
+      phone: "01092242607",
+      path: "/admin/dashboard",
+    },
+    seller: {
+      role: "seller",
+      name: "مهندس كريم شريف (Town Team)",
+      email: "seller@aura.com",
+      phone: "01122334455",
+      path: "/seller/dashboard",
+    },
+    driver: {
+      role: "driver",
+      name: "الكابتن أحمد محمود",
+      email: "driver@aura.com",
+      phone: "01092242607",
+      path: "/driver/dashboard",
+    },
+    collector: {
+      role: "collector",
+      name: "محمود حسن (مُجمّع)",
+      email: "collector@aura.com",
+      phone: "01233445566",
+      path: "/collector/dashboard",
+    },
+    user: {
+      role: "user",
+      name: "أحمد عبد العزيز (عميل)",
+      email: "customer@aura.com",
+      phone: "01012345678",
+      path: "/customer/products",
+    },
+  };
+
   const handleSwitchToAdmin = () => {
-    localStorage.setItem("user_role", "admin");
-    navigate("/admin/dashboard");
+    const preset = ROLE_PRESETS.admin;
+    localStorage.setItem("user_role", preset.role);
+    localStorage.setItem("user_name", preset.name);
+    localStorage.setItem("user_email", preset.email);
+    localStorage.setItem("user_phone", preset.phone);
+    localStorage.setItem("user_data", JSON.stringify(preset));
+    navigate(preset.path);
   };
 
   const handleSwitchRole = (role: string, targetPath: string) => {
-    localStorage.setItem("user_role", role);
+    const preset = ROLE_PRESETS[role] || ROLE_PRESETS.user;
+    localStorage.setItem("user_role", preset.role);
+    localStorage.setItem("user_name", preset.name);
+    localStorage.setItem("user_email", preset.email);
+    localStorage.setItem("user_phone", preset.phone);
+    localStorage.setItem("user_data", JSON.stringify(preset));
     navigate(targetPath);
   };
 
