@@ -1,6 +1,6 @@
 // tests/feature/authAndWallet.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { register, login } from "../../src/controllers/authController";
+import { register, login, forgotPassword, verifyResetOtp } from "../../src/controllers/authController";
 import { deposit, withdraw } from "../../src/controllers/walletController";
 import { User } from "../../src/models/User";
 import { WalletTransaction } from "../../src/models/WalletTransaction";
@@ -121,5 +121,113 @@ describe("Auth & Wallet Financial Transactions Feature Tests", () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(mockUser.walletBalance).toBe(300);
+  });
+
+  it("should return 404 error when requesting password reset for an unregistered email", async () => {
+    const req = {
+      body: { email: "nonexistent_user@gmail.com", method: "email" },
+    } as Request;
+    const res = createMockResponse();
+
+    vi.spyOn(User, "findOne").mockResolvedValue(null);
+
+    await forgotPassword(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    const body = (res.json as any).mock.calls[0][0];
+    expect(body.success).toBe(false);
+    expect(body.message).toContain("غير مسجل");
+  });
+
+  it("should return 404 error when requesting password reset for an unregistered phone", async () => {
+    const req = {
+      body: { phone: "01099999999", method: "whatsapp" },
+    } as Request;
+    const res = createMockResponse();
+
+    vi.spyOn(User, "findOne").mockResolvedValue(null);
+
+    await forgotPassword(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    const body = (res.json as any).mock.calls[0][0];
+    expect(body.success).toBe(false);
+    expect(body.message).toContain("غير مسجل لدينا");
+  });
+
+  it("should generate 6-digit OTP and not expose OTP in response for registered email", async () => {
+    const mockUser: any = {
+      _id: "u-registered",
+      name: "أحمد كمال",
+      email: "ahmed_kamal@gmail.com",
+      save: vi.fn().mockResolvedValue(true),
+    };
+
+    vi.spyOn(User, "findOne").mockResolvedValue(mockUser);
+
+    const req = {
+      body: { email: "ahmed_kamal@gmail.com", method: "email" },
+    } as Request;
+    const res = createMockResponse();
+
+    await forgotPassword(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const body = (res.json as any).mock.calls[0][0];
+    expect(body.success).toBe(true);
+    expect(body.data.email).toBe("ahmed_kamal@gmail.com");
+    // Verify security: OTP code is NOT exposed in the client payload
+    expect(body.data.demoOtpCode).toBeUndefined();
+    expect(mockUser.resetOtp).toBeDefined();
+    expect(mockUser.resetOtp.length).toBe(6);
+  });
+
+  it("should generate WhatsApp URL for registered phone without exposing OTP in response body", async () => {
+    const mockUser: any = {
+      _id: "u-phone-user",
+      name: "كريم سامي",
+      email: "karim@aura.com",
+      phone: "01012345678",
+      save: vi.fn().mockResolvedValue(true),
+    };
+
+    vi.spyOn(User, "findOne").mockResolvedValue(mockUser);
+
+    const req = {
+      body: { phone: "01012345678", method: "whatsapp" },
+    } as Request;
+    const res = createMockResponse();
+
+    await forgotPassword(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const body = (res.json as any).mock.calls[0][0];
+    expect(body.success).toBe(true);
+    expect(body.data.method).toBe("whatsapp");
+    expect(body.data.whatsappUrl).toContain("api.whatsapp.com");
+  });
+
+  it("should successfully verify valid 6-digit OTP", async () => {
+    const mockUser: any = {
+      _id: "u-valid",
+      email: "ahmed_kamal@gmail.com",
+      resetOtp: "987654",
+      resetOtpExpires: new Date(Date.now() + 500000),
+      save: vi.fn().mockResolvedValue(true),
+    };
+
+    vi.spyOn(User, "findOne").mockResolvedValue(mockUser);
+
+    const req = {
+      body: { email: "ahmed_kamal@gmail.com", otpCode: "987654" },
+    } as Request;
+    const res = createMockResponse();
+
+    await verifyResetOtp(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const body = (res.json as any).mock.calls[0][0];
+    expect(body.success).toBe(true);
+    expect(body.data.verified).toBe(true);
   });
 });

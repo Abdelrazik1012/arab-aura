@@ -215,6 +215,21 @@ const RegisterFormScreen: React.FC = () => {
       newErrors.email =
         lang === "ar" ? "البريد الإلكتروني غير صالح" : "Invalid email address";
     }
+    if (phone.trim()) {
+      const cleanPhone = phone.trim().replace(/\D/g, "");
+      const egRegex = /^(?:01)[0125][0-9]{8}$/;
+      if (!egRegex.test(cleanPhone)) {
+        newErrors.phone =
+          lang === "ar"
+            ? "رقم الهاتف غير صالح، يجب أن يكون 11 رقماً ويبدأ بـ 010 أو 011 أو 012 أو 015"
+            : "Invalid Egyptian mobile number. Must be 11 digits starting with 010, 011, 012, or 015";
+      }
+    } else if (role === "driver" || role === "collector") {
+      newErrors.phone =
+        lang === "ar"
+          ? "رقم الهاتف إلزامي لاستلام إشعارات الشحن والمهام"
+          : "Phone number is required for dispatch assignments";
+    }
     if (!password || password.length < 6) {
       newErrors.password =
         lang === "ar"

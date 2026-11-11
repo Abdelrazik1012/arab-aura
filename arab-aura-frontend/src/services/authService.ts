@@ -122,19 +122,33 @@ export const authService = {
     }
   },
 
-  async forgotPassword(email: string) {
-    const response = await api.post("/auth/forgot-password", { email });
+  async forgotPassword(params: { identifier: string; method?: "email" | "whatsapp" } | string) {
+    const identifier = typeof params === "string" ? params : params.identifier;
+    const method = typeof params === "string" ? (params.includes("@") ? "email" : "whatsapp") : params.method;
+    const response = await api.post("/auth/forgot-password", {
+      identifier,
+      email: identifier.includes("@") ? identifier : undefined,
+      phone: !identifier.includes("@") ? identifier : undefined,
+      method: method || (identifier.includes("@") ? "email" : "whatsapp"),
+    });
     return response.data;
   },
 
-  async verifyResetOtp(email: string, otpCode: string) {
-    const response = await api.post("/auth/verify-otp", { email, otpCode });
+  async verifyResetOtp(identifier: string, otpCode: string) {
+    const response = await api.post("/auth/verify-otp", {
+      identifier,
+      email: identifier.includes("@") ? identifier : undefined,
+      phone: !identifier.includes("@") ? identifier : undefined,
+      otpCode,
+    });
     return response.data;
   },
 
-  async resetPasswordWithOtp(email: string, otpCode: string, newPassword: string) {
+  async resetPasswordWithOtp(identifier: string, otpCode: string, newPassword: string) {
     const response = await api.post("/auth/reset-password", {
-      email,
+      identifier,
+      email: identifier.includes("@") ? identifier : undefined,
+      phone: !identifier.includes("@") ? identifier : undefined,
       otpCode,
       newPassword,
     });

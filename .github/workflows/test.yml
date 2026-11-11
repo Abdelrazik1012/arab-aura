@@ -92,7 +92,7 @@ jobs:
         run: cd arab-aura-frontend && npm ci
 
       - name: Install Playwright Browsers & OS Dependencies
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run Playwright Multi-Device Matrix
         run: npx playwright test --project=Mobile-iPhone14-RTL-Dark --project=Desktop-Chrome-RTL-Dark

@@ -5,6 +5,7 @@ import { Brand } from "../models/Brand";
 import { generateToken } from "../utils/jwt";
 import { sendSuccess, sendError } from "../utils/response";
 import { AuthenticatedRequest } from "../types";
+import { sendOtpEmail, generateWhatsAppOtpPayload } from "../services/notificationService";
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -340,7 +341,7 @@ export const updateDeviceToken = async (
 };
 
 // ========================================================
-// 🔑 خدمات نسيت كلمة السر ورمز التحقق (Forgot Password & Gmail OTP)
+// 🔑 خدمات نسيت كلمة السر ورمز التحقق (Forgot Password - Email & WhatsApp)
 // ========================================================
 
 interface OtpEntry {
@@ -349,44 +350,111 @@ interface OtpEntry {
 }
 const otpStore = new Map<string, OtpEntry>();
 
+// دالة مساعدة لتوحيد أرقام الهواتف المصرية والبحث عنها
+const normalizeEgyptianPhone = (raw: string): string[] => {
+  const digits = raw.replace(/\D/g, "");
+  const variants = new Set<string>();
+  variants.add(raw.trim());
+  variants.add(digits);
+  
+  if (digits.startsWith("0")) {
+    variants.add(digits); // 01012345678
+    variants.add("2" + digits); // 201012345678
+    variants.add("+2" + digits); // +201012345678
+  } else if (digits.startsWith("20")) {
+    variants.add(digits); // 201012345678
+    variants.add("+" + digits); // +201012345678
+    variants.add("0" + digits.slice(2)); // 01012345678
+  }
+  return Array.from(variants);
+};
+
+// دالة العثور على المستخدم عبر البريد أو رقم الهاتف
+const findUserByIdentifier = async (identifier: string) => {
+  const clean = identifier.toLowerCase().trim();
+  if (clean.includes("@")) {
+    return await User.findOne({ email: clean });
+  }
+  const phoneVariants = normalizeEgyptianPhone(clean);
+  const userByPhone = await User.findOne({ phone: { $in: phoneVariants } });
+  if (userByPhone) return userByPhone;
+  return await User.findOne({ username: clean });
+};
+
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
-    if (!email) {
-      return sendError(res, "يرجى إدخال البريد الإلكتروني (Gmail)", 400);
+    const { identifier, email, phone, method } = req.body;
+    const target = email || phone || identifier;
+
+    if (!target) {
+      return sendError(res, "يرجى إدخال البريد الإلكتروني أو رقم الهاتف المسجل لدينا", 400);
     }
 
-    const cleanEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: cleanEmail });
+    const cleanTarget = String(target).trim();
+    const isEmail = cleanTarget.includes("@");
 
-    // توليد رمز تحقق مكون من 6 أرقام
+    // 🔍 1. التحقق الصارم من وجود المستخدم في قاعدة البيانات أولاً
+    const user = await findUserByIdentifier(cleanTarget);
+    if (!user) {
+      const errorMsg = isEmail
+        ? "عفواً، هذا البريد الإلكتروني غير مسجل في منصة عرب أورا. يرجى التأكد من البريد أو إنشاء حساب جديد."
+        : "عفواً، رقم الهاتف المدخل غير مسجل لدينا. يرجى التأكد من الرقم أو إنشاء حساب جديد.";
+      return sendError(res, errorMsg, 404);
+    }
+
+    // 🎲 2. توليد كود تحقق جديد عشوائي مكون من 6 أرقام (يتغير في كل مرة)
     const otpCode = String(Math.floor(100000 + Math.random() * 900000));
     
-    // حفظ في الذاكرة
-    otpStore.set(cleanEmail, {
-      code: otpCode,
-      expiresAt: Date.now() + 10 * 60 * 1000, // صالح لمدة 10 دقائق
-    });
+    // حفظ في قاعدة البيانات لضمان بقائه في Vercel Serverless
+    user.resetOtp = otpCode;
+    user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 دقائق
+    await user.save();
 
-    // حفظ في قاعدة بيانات MongoDB Atlas لضمان استمراره في بيئة Serverless
-    if (user) {
-      user.resetOtp = otpCode;
-      user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
-      await user.save();
+    // حفظ في الذاكرة كنسخة احتياطية
+    otpStore.set(user.email.toLowerCase(), {
+      code: otpCode,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    if (user.phone) {
+      otpStore.set(user.phone, {
+        code: otpCode,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
     }
 
-    console.log(`📧 [Gmail OTP Service]: Sent password reset code ${otpCode} to ${cleanEmail}`);
+    // 📱 3. الإرسال عبر الطريقة المختارة (واتساب / هاتف أو بريد إلكتروني)
+    const chosenMethod = method || (isEmail ? "email" : "whatsapp");
 
-    return sendSuccess(
-      res,
-      `تم إرسال رمز التحقق (OTP) المكون من 6 أرقام إلى ${cleanEmail}`,
-      {
-        email: cleanEmail,
-        userExists: Boolean(user),
-        demoOtpCode: otpCode,
-        expiresInMinutes: 10,
-      }
-    );
+    if (chosenMethod === "whatsapp" && (user.phone || !isEmail)) {
+      const targetPhone = user.phone || cleanTarget;
+      const waPayload = generateWhatsAppOtpPayload(targetPhone, otpCode, user.name);
+
+      return sendSuccess(
+        res,
+        `تم إنشاء كود التحقق بنجاح لرقمك (${targetPhone})! يمكنك استلامه مباشرة عبر واتساب.`,
+        {
+          method: "whatsapp",
+          identifier: targetPhone,
+          phone: targetPhone,
+          whatsappUrl: waPayload.whatsappUrl,
+          expiresInMinutes: 10,
+        }
+      );
+    } else {
+      // إرسال عبر البريد الإلكتروني (Gmail)
+      await sendOtpEmail(user.email, otpCode, user.name);
+
+      return sendSuccess(
+        res,
+        `تم إرسال رمز التحقق المكون من 6 أرقام إلى بريدك الإلكتروني (${user.email}) بنجاح.`,
+        {
+          method: "email",
+          identifier: user.email,
+          email: user.email,
+          expiresInMinutes: 10,
+        }
+      );
+    }
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ أثناء إرسال رمز التحقق", 500);
   }
@@ -394,52 +462,56 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const verifyResetOtp = async (req: Request, res: Response) => {
   try {
-    const { email, otpCode } = req.body;
-    if (!email || !otpCode) {
-      return sendError(res, "البريد الإلكتروني وكود التحقق مطلوبان", 400);
+    const { identifier, email, phone, otpCode } = req.body;
+    const target = email || phone || identifier;
+
+    if (!target || !otpCode) {
+      return sendError(res, "البريد الإلكتروني/الهاتف ورمز التحقق مطلوبان", 400);
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanTarget = String(target).trim();
     const codeStr = String(otpCode).trim();
+
+    // التحقق من وجود المستخدم
+    const user = await findUserByIdentifier(cleanTarget);
+    if (!user) {
+      return sendError(res, "الحساب غير مسجل في النظام", 404);
+    }
 
     // رمز تجريبي احتياطي
     if (codeStr === "123456") {
       return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
         verified: true,
-        email: cleanEmail,
+        email: user.email,
+        identifier: cleanTarget,
       });
     }
 
-    // التحقق من قاعدة البيانات أولاً
-    const user = await User.findOne({ email: cleanEmail });
-    if (user && user.resetOtp) {
+    // التحقق من قاعدة بيانات MongoDB Atlas
+    if (user.resetOtp) {
       if (user.resetOtpExpires && user.resetOtpExpires.getTime() < Date.now()) {
         return sendError(res, "انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد.", 400);
       }
       if (user.resetOtp === codeStr) {
         return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
           verified: true,
-          email: cleanEmail,
+          email: user.email,
+          identifier: cleanTarget,
         });
       }
     }
 
     // التحقق من الذاكرة المحلية كبديل
-    const entry = otpStore.get(cleanEmail);
-    if (entry) {
-      if (Date.now() > entry.expiresAt) {
-        otpStore.delete(cleanEmail);
-        return sendError(res, "انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد.", 400);
-      }
-      if (entry.code === codeStr) {
-        return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
-          verified: true,
-          email: cleanEmail,
-        });
-      }
+    const entry = otpStore.get(cleanTarget.toLowerCase()) || (user.phone ? otpStore.get(user.phone) : null);
+    if (entry && entry.code === codeStr && Date.now() <= entry.expiresAt) {
+      return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
+        verified: true,
+        email: user.email,
+        identifier: cleanTarget,
+      });
     }
 
-    return sendError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته", 400);
+    return sendError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته! يرجى التأكد من الـ 6 أرقام.", 400);
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ أثناء تأكيد الرمز", 500);
   }
@@ -447,29 +519,35 @@ export const verifyResetOtp = async (req: Request, res: Response) => {
 
 export const resetPasswordWithOtp = async (req: Request, res: Response) => {
   try {
-    const { email, otpCode, newPassword } = req.body;
-    if (!email || !otpCode || !newPassword) {
-      return sendError(res, "جميع البيانات مطلوبة (البريد، الرمز، وكلمة المرور الجديدة)", 400);
+    const { identifier, email, phone, otpCode, newPassword } = req.body;
+    const target = email || phone || identifier;
+
+    if (!target || !otpCode || !newPassword) {
+      return sendError(res, "جميع البيانات مطلوبة (الحساب، الرمز، وكلمة المرور الجديدة)", 400);
     }
 
     if (newPassword.length < 6) {
       return sendError(res, "كلمة المرور يجب أن لا تقل عن 6 أحرف أو أرقام", 400);
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanTarget = String(target).trim();
     const codeStr = String(otpCode).trim();
-    const user = await User.findOne({ email: cleanEmail });
+    const user = await findUserByIdentifier(cleanTarget);
+
+    if (!user) {
+      return sendError(res, "الحساب غير مسجل في النظام", 404);
+    }
 
     let isValid = codeStr === "123456";
 
-    if (!isValid && user && user.resetOtp === codeStr) {
+    if (!isValid && user.resetOtp === codeStr) {
       if (!user.resetOtpExpires || user.resetOtpExpires.getTime() >= Date.now()) {
         isValid = true;
       }
     }
 
     if (!isValid) {
-      const entry = otpStore.get(cleanEmail);
+      const entry = otpStore.get(cleanTarget.toLowerCase()) || (user.phone ? otpStore.get(user.phone) : null);
       if (entry && entry.code === codeStr && Date.now() <= entry.expiresAt) {
         isValid = true;
       }
@@ -479,21 +557,21 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
       return sendError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته", 400);
     }
 
-    if (user) {
-      user.password = newPassword;
-      user.resetOtp = undefined;
-      user.resetOtpExpires = undefined;
-      await user.save();
-    }
+    // تحديث كلمة المرور ومسح رمز الـ OTP
+    user.password = newPassword;
+    user.resetOtp = undefined;
+    user.resetOtpExpires = undefined;
+    await user.save();
 
-    otpStore.delete(cleanEmail);
+    otpStore.delete(user.email.toLowerCase());
+    if (user.phone) otpStore.delete(user.phone);
 
     return sendSuccess(
       res,
       "تم إعادة تعيين كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.",
       {
         success: true,
-        email: cleanEmail,
+        email: user.email,
       }
     );
   } catch (err: any) {

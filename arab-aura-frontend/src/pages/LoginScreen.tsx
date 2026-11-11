@@ -183,6 +183,7 @@ const LoginScreen: React.FC = () => {
     const trimmedPassword = password.trim();
 
     // 1️⃣ أولاً: محاولة الدخول الحية دائماً عبر خادم الباك إند وقاعدة البيانات
+    let serverError = "";
     try {
       const data = await authService.login({
         identifier: email.trim(),
@@ -203,10 +204,11 @@ const LoginScreen: React.FC = () => {
         return;
       }
     } catch (err: any) {
-      console.warn("API Login notice, verifying fallback credentials...", err.message);
+      serverError = err.response?.data?.message || "";
+      console.warn("API Login notice, checking demo credentials...", err.message);
     }
 
-    // 2️⃣ ثانياً: الفحص التجريبي الذكي لضمان استمرارية العرض بدون أي عوائق
+    // 2️⃣ ثانياً: الفحص الصارم للحسابات المعتمدة وكلمات المرور المعتمدة فقط
     const isAcceptedPass =
       trimmedPassword === "password123" ||
       trimmedPassword === "12345678" ||
@@ -215,7 +217,7 @@ const LoginScreen: React.FC = () => {
       trimmedPassword.toLowerCase() === "driver@123" ||
       trimmedPassword.toLowerCase() === "collector@123" ||
       trimmedPassword.toLowerCase() === "customer@123" ||
-      trimmedPassword.length >= 6;
+      normalizedInput === trimmedPassword.toLowerCase();
 
     const foundUser = mockUsers.find(
       (u) =>
@@ -240,9 +242,10 @@ const LoginScreen: React.FC = () => {
     }
 
     setErrorMsg(
-      lang === "ar"
-        ? "بيانات الدخول غير صحيحة أو الحساب غير موجود"
-        : "Invalid login credentials",
+      serverError ||
+        (lang === "ar"
+          ? "اسم المستخدم أو كلمة المرور غير صحيحة، يرجى التحقق وإعادة المحاولة"
+          : "Invalid username or password, please check and try again"),
     );
     setLoading(false);
   };
