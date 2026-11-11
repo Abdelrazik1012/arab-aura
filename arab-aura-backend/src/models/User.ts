@@ -30,6 +30,9 @@ export interface IUser extends Document {
     tiktok?: string;
     website?: string;
   };
+  // 🔑 استعادة كلمة المرور عبر الرمز
+  resetOtp?: string;
+  resetOtpExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -79,6 +82,8 @@ const UserSchema = new Schema<IUser>(
       tiktok: { type: String, trim: true },
       website: { type: String, trim: true },
     },
+    resetOtp: { type: String },
+    resetOtpExpires: { type: Date },
   },
   { timestamps: true }
 );

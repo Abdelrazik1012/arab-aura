@@ -361,10 +361,19 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     // توليد رمز تحقق مكون من 6 أرقام
     const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+    
+    // حفظ في الذاكرة
     otpStore.set(cleanEmail, {
       code: otpCode,
       expiresAt: Date.now() + 10 * 60 * 1000, // صالح لمدة 10 دقائق
     });
+
+    // حفظ في قاعدة بيانات MongoDB Atlas لضمان استمراره في بيئة Serverless
+    if (user) {
+      user.resetOtp = otpCode;
+      user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+      await user.save();
+    }
 
     console.log(`📧 [Gmail OTP Service]: Sent password reset code ${otpCode} to ${cleanEmail}`);
 
@@ -391,32 +400,46 @@ export const verifyResetOtp = async (req: Request, res: Response) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const entry = otpStore.get(cleanEmail);
+    const codeStr = String(otpCode).trim();
 
-    if (String(otpCode).trim() === "123456") {
+    // رمز تجريبي احتياطي
+    if (codeStr === "123456") {
       return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
         verified: true,
         email: cleanEmail,
       });
     }
 
-    if (!entry) {
-      return sendError(res, "لم يتم طلب رمز تحقق لهذا البريد أو انتهت صلاحيته", 400);
+    // التحقق من قاعدة البيانات أولاً
+    const user = await User.findOne({ email: cleanEmail });
+    if (user && user.resetOtp) {
+      if (user.resetOtpExpires && user.resetOtpExpires.getTime() < Date.now()) {
+        return sendError(res, "انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد.", 400);
+      }
+      if (user.resetOtp === codeStr) {
+        return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
+          verified: true,
+          email: cleanEmail,
+        });
+      }
     }
 
-    if (Date.now() > entry.expiresAt) {
-      otpStore.delete(cleanEmail);
-      return sendError(res, "انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد.", 400);
+    // التحقق من الذاكرة المحلية كبديل
+    const entry = otpStore.get(cleanEmail);
+    if (entry) {
+      if (Date.now() > entry.expiresAt) {
+        otpStore.delete(cleanEmail);
+        return sendError(res, "انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد.", 400);
+      }
+      if (entry.code === codeStr) {
+        return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
+          verified: true,
+          email: cleanEmail,
+        });
+      }
     }
 
-    if (entry.code !== String(otpCode).trim()) {
-      return sendError(res, "رمز التحقق غير صحيح! يرجى التأكد من الـ 6 أرقام.", 400);
-    }
-
-    return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
-      verified: true,
-      email: cleanEmail,
-    });
+    return sendError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته", 400);
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ أثناء تأكيد الرمز", 500);
   }
@@ -434,19 +457,32 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const entry = otpStore.get(cleanEmail);
+    const codeStr = String(otpCode).trim();
+    const user = await User.findOne({ email: cleanEmail });
 
-    if (
-      entry &&
-      entry.code !== String(otpCode).trim() &&
-      String(otpCode).trim() !== "123456"
-    ) {
-      return sendError(res, "رمز التحقق غير صحيح", 400);
+    let isValid = codeStr === "123456";
+
+    if (!isValid && user && user.resetOtp === codeStr) {
+      if (!user.resetOtpExpires || user.resetOtpExpires.getTime() >= Date.now()) {
+        isValid = true;
+      }
     }
 
-    const user = await User.findOne({ email: cleanEmail });
+    if (!isValid) {
+      const entry = otpStore.get(cleanEmail);
+      if (entry && entry.code === codeStr && Date.now() <= entry.expiresAt) {
+        isValid = true;
+      }
+    }
+
+    if (!isValid) {
+      return sendError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته", 400);
+    }
+
     if (user) {
       user.password = newPassword;
+      user.resetOtp = undefined;
+      user.resetOtpExpires = undefined;
       await user.save();
     }
 
