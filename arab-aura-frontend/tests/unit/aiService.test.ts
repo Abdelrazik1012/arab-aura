@@ -1,6 +1,6 @@
 // tests/unit/aiService.test.ts
 import { describe, it, expect } from "vitest";
-import { analyzeProductForEgyptianConsumer } from "../../src/services/aiService";
+import { analyzeProductForEgyptianConsumer, runVirtualTryOn } from "../../src/services/aiService";
 
 describe("Frontend AI Consumer & Vision Service Unit Tests", () => {
   it("should calculate correct Egyptian size recommendation for wide-fit preference", async () => {
@@ -58,5 +58,22 @@ describe("Frontend AI Consumer & Vision Service Unit Tests", () => {
     expect(result.outfits).toBeDefined();
     expect(result.outfits.length).toBeGreaterThan(0);
     expect(result.outfits[0].itemsAr.length).toBeGreaterThan(0);
+  });
+
+  it("should generate complete virtual try-on outfit simulation with 3 accessory pieces", async () => {
+    const tryOn = await runVirtualTryOn({
+      productTitle: "تيشيرت بولو Town Team",
+      price: 450,
+      height: "178",
+      weight: "76",
+      skinTone: "wheat",
+      fitPreference: "regular",
+    });
+
+    expect(tryOn.recommendedSize).toBe("L");
+    expect(tryOn.fitScore).toBeDefined();
+    expect(tryOn.completeOutfitLook).toHaveLength(3);
+    expect(tryOn.totalLookPrice).toBe(2160);
+    expect(tryOn.bundleDiscount).toContain("15%");
   });
 });

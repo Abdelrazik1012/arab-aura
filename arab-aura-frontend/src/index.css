@@ -52,8 +52,12 @@
   font-family: 'IBM Plex Sans Arabic', 'IBMPlexArabic-Text', 'IBM Plex Sans', system-ui, -apple-system, sans-serif !important;
 }
 
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   direction: rtl;
   background-color: #FDFBF7;
-  overflow-x: hidden;
 }

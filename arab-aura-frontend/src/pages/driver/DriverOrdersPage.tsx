@@ -44,7 +44,7 @@ interface DeliveryOrder {
 export const DriverOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const { lang, toggleLanguage } = useLanguage();
-  const { orders: platformOrders } = usePlatform();
+  const { orders: platformOrders, updateOrderStatus } = usePlatform();
 
   const { isDarkMode, toggleTheme } = useTheme();
 
@@ -135,31 +135,29 @@ export const DriverOrdersPage: React.FC = () => {
     navigate("/login");
   };
 
-  // دمج طلبات المنصة مع شحنات السائق
+  // دمج طلبات المنصة الحية في القمة أولاً مع شحنات السائق
   const allDriverOrders: DeliveryOrder[] = [
-    ...orders,
-    ...platformOrders
-      .filter((po) => !orders.some((o) => o.id === po.id))
-      .map((po) => ({
-        id: po.id,
-        packageCode: po.packageId || (po.shippingType === "express" ? "EXP-DIRECT" : "PKG-OCT-9901"),
-        manifestId: "MNF-8021",
-        hubName: po.hubName || "مقر المُجمّع: محمود حسن (حي الأشجار - Micro-Hub)",
-        customerName: po.customerName,
-        phone: po.phone,
-        address: po.address,
-        zone: po.city,
-        codAmount: po.paymentMethod === "cod" ? po.totalAmount : 0,
-        paymentType: (po.paymentMethod === "cod" ? "COD" : "ONLINE") as any,
-        status: (po.status === "delivered" ? "delivered" : "out_for_delivery") as any,
-        otpCode: po.otpCode || "4821",
-        packageItems: po.items.map((it) => ({
-          id: it.id,
-          name: it.productTitle,
-          qty: it.qty,
-          sellerOffice: it.brandName || "متجر معتمد",
-        })),
+    ...platformOrders.map((po) => ({
+      id: po.id,
+      packageCode: po.packageId || (po.shippingType === "express" ? "EXP-DIRECT" : "PKG-OCT-9901"),
+      manifestId: "MNF-8021",
+      hubName: po.hubName || "مقر المُجمّع: محمود حسن (حي الأشجار - Micro-Hub)",
+      customerName: po.customerName,
+      phone: po.phone,
+      address: po.address,
+      zone: po.city,
+      codAmount: po.paymentMethod === "cod" ? po.totalAmount : 0,
+      paymentType: (po.paymentMethod === "cod" ? "COD" : "ONLINE") as any,
+      status: (po.status === "delivered" ? "delivered" : "out_for_delivery") as any,
+      otpCode: po.otpCode || "4821",
+      packageItems: po.items.map((it) => ({
+        id: it.id,
+        name: it.productTitle,
+        qty: it.qty,
+        sellerOffice: it.brandName || "متجر معتمد",
       })),
+    })),
+    ...orders.filter((o) => !platformOrders.some((po) => po.id === o.id)),
   ];
 
   const filteredOrders = allDriverOrders.filter((o) => {
@@ -533,7 +531,31 @@ export const DriverOrdersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-between pt-2">
+                {selectedJourneyOrder.status !== "delivered" ? (
+                  <button
+                    onClick={() => {
+                      updateOrderStatus(
+                        selectedJourneyOrder.id,
+                        "delivered",
+                        "الكابتن أحمد محمود",
+                        "تم تأكيد استلام العميل للطرد بنجاح بمطابقة كود الـ OTP",
+                      );
+                      setSelectedJourneyOrder((prev) =>
+                        prev ? { ...prev, status: "delivered" } : null,
+                      );
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black cursor-pointer flex items-center gap-2 shadow-xs transition"
+                  >
+                    <CheckCircleIcon className="w-4 h-4" />
+                    <span>تأكيد تسليم الطلب للعميل (OTP ✓)</span>
+                  </button>
+                ) : (
+                  <span className="text-emerald-500 font-black text-xs flex items-center gap-1.5">
+                    <CheckCircleIcon className="w-4 h-4" />
+                    <span>تم تسليم هذا الطلب بنجاح</span>
+                  </span>
+                )}
                 <button
                   onClick={() => setSelectedJourneyOrder(null)}
                   className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl text-xs font-black cursor-pointer"

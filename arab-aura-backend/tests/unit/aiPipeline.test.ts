@@ -1,6 +1,6 @@
 // tests/unit/aiPipeline.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { getProductAiInsights, queryMarketAssistant } from "../../src/controllers/aiController";
+import { getProductAiInsights, queryMarketAssistant, virtualTryOn } from "../../src/controllers/aiController";
 import { Request, Response } from "express";
 
 describe("AI & Computer Vision Pipeline Unit Tests", () => {
@@ -94,5 +94,50 @@ describe("AI & Computer Vision Pipeline Unit Tests", () => {
     expect(result.data.reply).toContain("6 أكتوبر");
     expect(result.data.reply).toContain("المنوفية");
     expect(result.data.source).toBe("egypt-fashion-ai-engine");
+  });
+
+  it("should process AI virtual try-on with body metrics, skin tone, and complete outfit bundle", async () => {
+    const req = {
+      body: {
+        productTitle: "Town Team Polo",
+        productImage: "https://example.com/polo.jpg",
+        height: "178",
+        weight: "76",
+        skinTone: "wheat",
+        fitPreference: "regular",
+      },
+    } as Request;
+    const res = createMockResponse();
+
+    await virtualTryOn(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const callArgs = (res.json as any).mock.calls[0][0];
+    expect(callArgs.success).toBe(true);
+    expect(callArgs.data.recommendedSize).toBe("L");
+    expect(callArgs.data.fitScore).toBeDefined();
+    expect(callArgs.data.completeOutfitLook).toHaveLength(3);
+    expect(callArgs.data.skinToneHarmony.toneNameAr).toContain("قمحية");
+  });
+
+  it("should support slim fit preference and calculate accurate BMI category in virtual try-on", async () => {
+    const req = {
+      body: {
+        productTitle: "Classic Cotton Shirt",
+        height: "185",
+        weight: "70",
+        fitPreference: "slim",
+        skinTone: "fair",
+      },
+    } as Request;
+    const res = createMockResponse();
+
+    await virtualTryOn(req, res);
+
+    const callArgs = (res.json as any).mock.calls[0][0];
+    expect(callArgs.success).toBe(true);
+    expect(callArgs.data.recommendedSize).toBe("M");
+    expect(callArgs.data.bodyMetrics.bmiCategory).toContain("متناسق");
+    expect(callArgs.data.skinToneHarmony.contrastRating).toContain("98%");
   });
 });

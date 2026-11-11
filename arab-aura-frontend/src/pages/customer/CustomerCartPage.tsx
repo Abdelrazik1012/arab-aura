@@ -28,7 +28,7 @@ import {
   CartIcon,
 } from "../../components/Icons";
 
-interface CartItem {
+export interface CartItem {
   id: string;
   titleAr: string;
   titleEn: string;
@@ -38,6 +38,20 @@ interface CartItem {
   size: string;
   color: string;
 }
+
+export const sanitizeEgyptianPhone = (rawPhone: string): string => {
+  if (!rawPhone) return "01012345678";
+  let cleaned = rawPhone.trim().replace(/[\s\-\(\)\+]/g, "");
+  if (cleaned.startsWith("0020")) {
+    cleaned = cleaned.substring(4);
+  } else if (cleaned.startsWith("20") && cleaned.length >= 12) {
+    cleaned = cleaned.substring(2);
+  }
+  if (!cleaned.startsWith("0") && (cleaned.startsWith("10") || cleaned.startsWith("11") || cleaned.startsWith("12") || cleaned.startsWith("15"))) {
+    cleaned = "0" + cleaned;
+  }
+  return cleaned;
+};
 
 export const CustomerCartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -86,7 +100,7 @@ export const CustomerCartPage: React.FC = () => {
   const [villageOrDistrict, setVillageOrDistrict] = useState("شارع الجلاء");
   const [street, setStreet] = useState("بجوار الاستاد الرياضي");
   const [buildingNumber, setBuildingNumber] = useState("عمارة 12، شقة 4");
-  const [phone, setPhone] = useState(() => localStorage.getItem("user_phone") || "01012345678");
+  const [phone, setPhone] = useState(() => sanitizeEgyptianPhone(localStorage.getItem("user_phone") || "01012345678"));
   const [fullName, setFullName] = useState(() => localStorage.getItem("user_name") || "عميل عرب أورا");
 
   // وسائل الدفع المتعددة
@@ -102,7 +116,7 @@ export const CustomerCartPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>("vodafone_cash");
 
   // بيانات المحافظ الإلكترونية
-  const [senderWalletPhone, setSenderWalletPhone] = useState("01012345678");
+  const [senderWalletPhone, setSenderWalletPhone] = useState(() => sanitizeEgyptianPhone(localStorage.getItem("user_phone") || "01012345678"));
 
   // بيانات انستا باي
   const [instaPayAddress, setInstaPayAddress] = useState("mahmoud@instapay");
@@ -225,9 +239,10 @@ export const CustomerCartPage: React.FC = () => {
       return;
     }
 
-    // 2. فحص رقم الهاتف المصري
+    // 2. فحص وتطهير رقم الهاتف المصري
+    const cleanPhone = sanitizeEgyptianPhone(phone);
     const egyptianPhoneRegex = /^01[0125][0-9]{8}$/;
-    if (!egyptianPhoneRegex.test(phone.replace(/\s+/g, ""))) {
+    if (!egyptianPhoneRegex.test(cleanPhone)) {
       setFormError(
         lang === "ar"
           ? "رقم الهاتف غير صحيح! يرجى إدخال رقم محمول مصري صحيح مكون من 11 رقماً (010 / 011 / 012 / 015)"
@@ -237,8 +252,9 @@ export const CustomerCartPage: React.FC = () => {
     }
 
     // 3. فحص مدخلات وسيلة الدفع المحددة
+    const cleanSenderWallet = sanitizeEgyptianPhone(senderWalletPhone);
     if (paymentMethod === "vodafone_cash") {
-      if (!egyptianPhoneRegex.test(senderWalletPhone.replace(/\s+/g, ""))) {
+      if (!egyptianPhoneRegex.test(cleanSenderWallet)) {
         setFormError(
           lang === "ar"
             ? "يرجى إدخال رقم المحفظة المحول منها (11 رقماً)"
@@ -300,13 +316,13 @@ export const CustomerCartPage: React.FC = () => {
         villageOrDistrict,
         street,
         buildingNumber,
-        phone,
+        phone: cleanPhone,
       },
       payment: {
         method: paymentMethod,
         totalAmount,
         receiptImage: receiptBase64,
-        senderWallet: senderWalletPhone,
+        senderWallet: cleanSenderWallet,
         transactionRef: paymentMethod === "instapay" ? instaPayAddress : fawryCode,
       },
     });

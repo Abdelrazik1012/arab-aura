@@ -2,7 +2,7 @@
 import React from "react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import CustomerCartPage from "../../src/pages/customer/CustomerCartPage";
+import CustomerCartPage, { sanitizeEgyptianPhone } from "../../src/pages/customer/CustomerCartPage";
 import { LanguageProvider } from "../../src/context/LanguageContext";
 import { ThemeProvider } from "../../src/context/ThemeContext";
 import { PlatformProvider } from "../../src/context/PlatformContext";
@@ -67,6 +67,32 @@ describe("CustomerCartPage & Payment Validation Tests", () => {
     // 4. Assert error message appears
     await waitFor(() => {
       expect(screen.getByText(/رصيد محفظتك الحالي \(0.00 ج.م\) غير كافٍ/i)).toBeDefined();
+    });
+  });
+
+  it("should sanitize various Egyptian phone number formats into 11 digits correctly", () => {
+    expect(sanitizeEgyptianPhone("+201092242607")).toBe("01092242607");
+    expect(sanitizeEgyptianPhone("00201123456789")).toBe("01123456789");
+    expect(sanitizeEgyptianPhone("+20 12 3456 7890")).toBe("01234567890");
+    expect(sanitizeEgyptianPhone("201551234567")).toBe("01551234567");
+    expect(sanitizeEgyptianPhone("01012345678")).toBe("01012345678");
+  });
+
+  it("should accept +20 prefixed Egyptian phone without blocking confirmation", async () => {
+    localStorage.setItem("user_phone", "+201092242607");
+    renderCartPage();
+
+    const proceedBtn = screen.getByText(/متابعة العنوان وطريقة الدفع/i);
+    fireEvent.click(proceedBtn);
+
+    const codOption = await screen.findByText(/الدفع نقداً عند الاستلام/i);
+    fireEvent.click(codOption);
+
+    const confirmBtn = screen.getByRole("button", { name: /تأكيد الطلب/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/تم تأكيد طلبك بنجاح/i)).toBeDefined();
     });
   });
 });

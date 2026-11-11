@@ -19,7 +19,9 @@ import {
   EyeIcon,
   CloseIcon,
   RefreshIcon,
+  MapIcon,
 } from "../../components/Icons";
+import { LeafletJourneyTracker } from "../../components/LeafletJourneyTracker";
 
 export const SellerOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +32,7 @@ export const SellerOrdersPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [trackingJourneyOrder, setTrackingJourneyOrder] = useState<any | null>(null);
 
   // 🔄 تحديث حالة الطلب وربطها بالمنصة المركزية
   const handleUpdateOrderStatus = (
@@ -434,6 +437,13 @@ export const SellerOrdersPage: React.FC = () => {
                         <EyeIcon className="w-3.5 h-3.5" />
                         <span>{isRtl ? "تفاصيل" : "Details"}</span>
                       </button>
+                      <button
+                        onClick={() => setTrackingJourneyOrder(ord)}
+                        className="px-2.5 py-1 font-bold rounded-lg text-[11px] cursor-pointer inline-flex items-center gap-1 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30"
+                      >
+                        <MapIcon className="w-3.5 h-3.5" />
+                        <span>{isRtl ? "خريطة المسار" : "Route Map"}</span>
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -523,6 +533,87 @@ export const SellerOrdersPage: React.FC = () => {
                   {isRtl ? "إغلاق" : "Close"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 🗺️ مودال تتبع مسار الشحنة على الخريطة للتاجر */}
+      {trackingJourneyOrder && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className={`max-w-2xl w-full p-5 sm:p-6 rounded-2xl border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${
+              isDarkMode
+                ? "bg-slate-900 border-slate-800 text-white"
+                : "bg-white border-slate-300 text-black"
+            }`}
+          >
+            <div className="flex justify-between items-center border-b pb-3 border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+                  <MapIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-indigo-500">
+                    {isRtl
+                      ? `تتبع مسار شحنة المتجر #${trackingJourneyOrder.id}`
+                      : `Store Shipment Tracker #${trackingJourneyOrder.id}`}
+                  </h3>
+                  <p className="text-[10px] opacity-60">
+                    {isRtl
+                      ? `من متجر 6 أكتوبر عبر مقر المُجمّع (Micro-Hub) إلى ${trackingJourneyOrder.city}`
+                      : `From 6th of October store via Micro-Hub to ${trackingJourneyOrder.city}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTrackingJourneyOrder(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 font-black cursor-pointer transition"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <LeafletJourneyTracker
+              order={trackingJourneyOrder}
+              heightClass="h-64 sm:h-80"
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                <span className="text-[10px] opacity-60 block">
+                  {isRtl ? "بيانات العميل:" : "Customer Details:"}
+                </span>
+                <div className="font-black">
+                  {trackingJourneyOrder.customerName} ({trackingJourneyOrder.phone})
+                </div>
+                <div className="text-[11px] opacity-80">
+                  {trackingJourneyOrder.address}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                <span className="text-[10px] opacity-60 block">
+                  {isRtl ? "حالة الشحنة والتوصيل:" : "Shipment Status:"}
+                </span>
+                <div className="font-black text-indigo-500">
+                  {trackingJourneyOrder.shippingType === "express"
+                    ? "شحن فوري سريع Express"
+                    : "شحن مجمع عبر الهب (35 ج.م)"}
+                </div>
+                <div className="text-[11px] text-emerald-500 font-bold">
+                  {isRtl
+                    ? `إجمالي الفاتورة: ${trackingJourneyOrder.totalAmount} ج.م`
+                    : `Total: ${trackingJourneyOrder.totalAmount} EGP`}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setTrackingJourneyOrder(null)}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl text-xs font-black cursor-pointer"
+              >
+                {isRtl ? "إغلاق الخريطة" : "Close Map"}
+              </button>
             </div>
           </div>
         </div>

@@ -190,31 +190,29 @@ export const CollectorOrdersScreen: React.FC = () => {
     setActiveModalOrder(null);
   };
 
-  // دمج طلبات المنصة المركزية مع شحنات الكوليكتور
+  // دمج طلبات المنصة المركزية مع شحنات الكوليكتور (الطلبات الحية في القمة)
   const allCollectorOrders: OrderItem[] = [
-    ...orders,
-    ...platformOrders
-      .filter((po) => !orders.some((o) => o.id === po.id))
-      .map((po) => ({
-        id: po.id,
-        storeName: po.sellerName || "متجر 6 أكتوبر",
-        sellerAddress: po.sellerAddress || "6 أكتوبر",
-        destinationZone: po.governorate || "المنوفية",
-        customerCity: po.city,
-        distanceKm: po.distanceKm || 3.5,
-        shippingType: (po.shippingType === "express" ? "Express" : "Standard") as any,
-        deliveryPreference: po.shippingType === "express" ? "فوري (خلال 60 دقيقة)" : "مجدول",
-        itemsCount: po.items.length,
-        status: (po.status === "collected_in_hub"
-          ? "Collected"
-          : po.status === "ready_for_collection"
-            ? "Available"
-            : "Collecting") as any,
-        paymentMethod: (po.paymentMethod === "cod" ? "Cash" : "Online") as any,
-        totalPrice: po.totalAmount,
-        trackingCode: `TRK-${po.id}`,
-        collectorNotes: po.shippingType === "express" ? "⚡ طلب Express مستعجل" : "تجميع عادي بالهب",
-      })),
+    ...platformOrders.map((po) => ({
+      id: po.id,
+      storeName: po.sellerName || "متجر 6 أكتوبر",
+      sellerAddress: po.sellerAddress || "6 أكتوبر",
+      destinationZone: po.governorate || "المنوفية",
+      customerCity: po.city,
+      distanceKm: po.distanceKm || 3.5,
+      shippingType: (po.shippingType === "express" ? "Express" : "Standard") as any,
+      deliveryPreference: po.shippingType === "express" ? "فوري (خلال 60 دقيقة)" : "مجدول",
+      itemsCount: po.items.length,
+      status: (po.status === "collected_in_hub"
+        ? "Collected"
+        : po.status === "ready_for_collection" || po.status === "pending" || po.status === "processing"
+          ? "Available"
+          : "Collecting") as any,
+      paymentMethod: (po.paymentMethod === "cod" ? "Cash" : "Online") as any,
+      totalPrice: po.totalAmount,
+      trackingCode: `TRK-${po.id}`,
+      collectorNotes: po.shippingType === "express" ? "⚡ طلب Express مستعجل" : "تجميع عادي بالهب",
+    })),
+    ...orders.filter((o) => !platformOrders.some((po) => po.id === o.id)),
   ];
 
   const filteredOrders = allCollectorOrders.filter((ord) => {
