@@ -2,6 +2,9 @@
 import { Request, Response } from "express";
 import { Hub } from "../models/Hub";
 import { Order } from "../models/Order";
+import { User } from "../models/User";
+import { Vehicle } from "../models/Vehicle";
+import { Shipment } from "../models/Shipment";
 import { sendSuccess, sendError } from "../utils/response";
 import { AuthenticatedRequest } from "../types";
 
@@ -77,5 +80,153 @@ export const getHubMetrics = async (req: AuthenticatedRequest, res: Response) =>
     });
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ في مؤشرات مركز التجميع", 500);
+  }
+};
+
+/**
+ * جلب جميع طلبات مركز التجميع لمسؤول التجميع (Collector)
+ */
+export const getCollectorOrders = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const isDemoCollector =
+      req.user?.email === "collector@aura.com" ||
+      req.user?.username === "collector" ||
+      !req.user;
+
+    let filter: any = {};
+    if (!isDemoCollector && req.user) {
+      const hub = await Hub.findOne({ collector: req.user.id });
+      if (hub) {
+        filter = { $or: [{ hub: hub._id }, { city: hub.city }] };
+      }
+    }
+
+    const orders = await Order.find(filter)
+      .populate("hub", "name nameAr code address city")
+      .populate("driver", "name phone")
+      .sort({ createdAt: -1 });
+
+    return sendSuccess(res, "طلبات مركز التجميع (Micro-Hub Orders)", orders);
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء جلب طلبات المركز", 500);
+  }
+};
+
+/**
+ * تجميع عدة طلبات في حزمة ذكية موحدة (Smart Batch Consolidation)
+ */
+export const consolidateOrdersIntoPackage = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { packageId, orderIds, targetZone } = req.body;
+    if (!packageId || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return sendError(res, "يرجى تحديد كود الحزمة والطلبات المراد تجميعها", 400);
+    }
+
+    await Order.updateMany(
+      {
+        $or: [
+          { _id: { $in: orderIds.filter((id: string) => id.match(/^[0-9a-fA-F]{24}$/)) } },
+          { orderNumber: { $in: orderIds } },
+        ],
+      },
+      {
+        $set: {
+          packageId,
+          status: "collected_in_hub",
+        },
+      }
+    );
+
+    return sendSuccess(
+      res,
+      `تم تجميع عدد (${orderIds.length}) طلب في الحزمة الذكية (${packageId}) بنجاح!`,
+      {
+        packageId,
+        ordersCount: orderIds.length,
+        status: "collected_in_hub",
+        targetZone: targetZone || "6 أكتوبر والمنوفية",
+      }
+    );
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء تجميع الشحنات", 500);
+  }
+};
+
+/**
+ * تسليم حزمة مجمعة لسائق توصيل وتحديث الحالة لخروج التسليم
+ */
+export const assignDriverToPackage = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { packageId, driverId } = req.body;
+    if (!packageId || !driverId) {
+      return sendError(res, "يرجى تحديد كود الحزمة وسائق التوصيل", 400);
+    }
+
+    let driverUser = await User.findOne({
+      $or: [
+        { _id: driverId.match(/^[0-9a-fA-F]{24}$/) ? driverId : null },
+        { email: driverId },
+        { username: driverId },
+      ],
+    });
+
+    if (!driverUser) {
+      driverUser = await User.findOne({ role: "driver" });
+    }
+
+    if (!driverUser) {
+      return sendError(res, "السائق غير موجود في النظام", 404);
+    }
+
+    const vehicle = await Vehicle.findOne({ driver: driverUser._id });
+
+    await Order.updateMany(
+      { packageId },
+      {
+        $set: {
+          driver: driverUser._id,
+          driverName: driverUser.name,
+          driverPhone: driverUser.phone,
+          driverVehicle: vehicle ? `${vehicle.brand} ${vehicle.model}` : "سيارة فان دايو كاري",
+          driverPlate: vehicle ? vehicle.plateNumber : "أ ب جـ 4589",
+          status: "out_for_delivery",
+        },
+      }
+    );
+
+    // تحديث سجلات الشحنات (Shipment)
+    const orders = await Order.find({ packageId });
+    for (const ord of orders) {
+      await Shipment.findOneAndUpdate(
+        { order: ord._id },
+        {
+          driver: driverUser._id,
+          vehicle: vehicle?._id,
+          shippingStatus: "in_transit",
+        },
+        { upsert: true }
+      );
+    }
+
+    return sendSuccess(
+      res,
+      `تم تسليم الحزمة (${packageId}) للكابتن (${driverUser.name}) بنجاح، وخرجت للتوصيل المباشر!`,
+      {
+        packageId,
+        driver: { id: driverUser._id, name: driverUser.name, phone: driverUser.phone },
+        status: "out_for_delivery",
+      }
+    );
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء تسليم الحزمة للسائق", 500);
   }
 };
