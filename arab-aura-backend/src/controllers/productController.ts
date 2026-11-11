@@ -2,6 +2,8 @@
 import { Request, Response } from "express";
 import { Product } from "../models/Product";
 import { Brand } from "../models/Brand";
+import { Category } from "../models/Category";
+import { Review } from "../models/Review";
 import { sendSuccess, sendError } from "../utils/response";
 import { AuthenticatedRequest } from "../types";
 
@@ -176,5 +178,54 @@ export const deleteProduct = async (
     return sendSuccess(res, "تم حذف المنتج بنجاح");
   } catch (err: any) {
     return sendError(res, err.message || "حدث خطأ أثناء حذف المنتج", 500);
+  }
+};
+
+export const getCategories = async (_req: Request, res: Response) => {
+  try {
+    const categories = await Category.find({ status: "active" }).sort({
+      categoryId: 1,
+    });
+    return sendSuccess(res, "تم جلب التصنيفات بنجاح", categories);
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء جلب التصنيفات", 500);
+  }
+};
+
+export const getProductReviews = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const reviews = await Review.find({ product: id })
+      .populate("user", "name avatar")
+      .sort({ createdAt: -1 });
+    return sendSuccess(res, "تم جلب تقييمات المنتج", reviews);
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء جلب التقييمات", 500);
+  }
+};
+
+export const createProductReview = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) return sendError(res, "غير مصرح", 401);
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+
+    if (!rating || !comment) {
+      return sendError(res, "التقييم والتعليق مطلوبان", 400);
+    }
+
+    const review = await Review.create({
+      product: id,
+      user: req.user.id,
+      rating: Number(rating),
+      comment: String(comment).trim(),
+    });
+
+    return sendSuccess(res, "تمت إضافة التقييم بنجاح", review, 201);
+  } catch (err: any) {
+    return sendError(res, err.message || "حدث خطأ أثناء إضافة التقييم", 500);
   }
 };

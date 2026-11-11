@@ -1,3 +1,8 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// Arab Aura Platform - Relational Schema derived from ERD (Book Figure 4.2 & 4.3)
+// Graduation Project: AI-Driven Object Recognition & Smart Logistics
+// ══════════════════════════════════════════════════════════════════════════════
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
@@ -7,46 +12,149 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// 👤 المستخدمين (يدعم الويب وتطبيقات الموبايل iOS / Android)
+// 1. USER
 model User {
-  id          String   @id @default(uuid())
-  name        String
-  email       String   @unique
-  password    String
-  phone       String?
-  role        String   @default("customer") // "customer" | "seller" | "collector" | "driver" | "admin"
-  avatar      String?
+  id               String    @id @default(uuid())
+  userId           Int?      @unique
+  name             String
+  username         String?   @unique
+  email            String    @unique
+  phone            String?
+  password         String
+  role             String    @default("customer") // "customer" | "seller" | "collector" | "driver" | "admin"
+  accountStatus    String    @default("active")
+  avatar           String?
+  registrationDate DateTime  @default(now())
+  notes            String?
+  walletBalance    Float     @default(0.0)
   
-  // 📱 دعم الموبايل والإشعارات الفورية
-  deviceToken String?  // FCM Push Token for Mobile App
-  deviceType  String?  @default("web") // "ios" | "android" | "web"
+  // Mobile Support
+  deviceToken      String?
+  deviceType       String?   @default("web")
+  currentLat       Float?
+  currentLng       Float?
+  isOnline         Boolean   @default(false)
   
-  // 📍 تتبع الكابتن المباشر في الموبايل
-  currentLat  Float?
-  currentLng  Float?
-  isOnline    Boolean  @default(false)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  // Relationships
-  brands        Brand[]
-  orders        Order[]        @relation("CustomerOrders")
-  hubs          Hub[]          @relation("CollectorHubs")
-  deliveries    Order[]        @relation("DriverOrders")
-  reviews       Review[]
-  notifications Notification[]
+  // Relationships (Figure 4.2)
+  userRoles        UserRole[]
+  businesses       Business[]
+  brands           Brand[]
+  locations        Location[]
+  carts            Cart[]
+  orders           Order[]             @relation("CustomerOrders")
+  assignedOrders   Order[]             @relation("DriverOrders")
+  hubs             Hub[]               @relation("CollectorHubs")
+  driverShipments  Shipment[]          @relation("DriverShipments")
+  vehicles         Vehicle[]
+  reviews          Review[]
+  recognitions     ObjectRecognition[]
+  notifications    Notification[]
 }
 
-// 🏢 البراندات والمصانع المصرية
+// 2. ROLE
+model Role {
+  id          String            @id @default(uuid())
+  roleId      Int?              @unique
+  roleName    String            @unique
+  description String?
+  status      String            @default("active")
+  notes       String?
+  userRoles   UserRole[]
+  permissions RolePermission[]
+}
+
+// 3. PERMISSION
+model Permission {
+  id             String           @id @default(uuid())
+  permissionId   Int?             @unique
+  permissionName String           @unique
+  description    String?
+  module         String?
+  status         String           @default("active")
+  notes          String?
+  rolePermissions RolePermission[]
+}
+
+// 4. USER_ROLE (Junction Table)
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+// 5. ROLE_PERMISSION (Junction Table)
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// 6. BUSINESS (Vendor Store Profile)
+model Business {
+  id                 String    @id @default(uuid())
+  businessId         Int?      @unique
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName       String
+  businessType       String    @default("Fashion Brand")
+  businessModel      String    @default("B2C")
+  description        String?
+  phone              String?
+  email              String?
+  website            String?
+  logo               String?
+  verificationStatus String    @default("verified")
+  rating             Float     @default(4.9)
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  branches           Branch[]
+  products           Product[]
+}
+
+// 7. BRANCH
+model Branch {
+  id           String   @id @default(uuid())
+  branchId     Int?     @unique
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchName   String
+  address      String
+  phone        String?
+  openingHours String?  @default("10:00 AM - 11:00 PM")
+  status       String   @default("active")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 8. BRAND
 model Brand {
   id            String    @id @default(uuid())
+  brandId       Int?      @unique
   name          String
   nameAr        String
+  brandType     String?   @default("Fashion")
+  description   String?
   descriptionAr String?
   descriptionEn String?
+  logo          String?
   bgImage       String?
   logoText      String?
+  country       String    @default("Egypt")
+  website       String?
+  status        String    @default("active")
+  notes         String?
   sellerId      String
   seller        User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   products      Product[]
@@ -54,41 +162,271 @@ model Brand {
   updatedAt     DateTime  @updatedAt
 }
 
-// 👕 المنتجات والكتالوج
+// 9. CATEGORY
+model Category {
+  id           String    @id @default(uuid())
+  categoryId   Int?      @unique
+  categoryName String    @unique
+  description  String?
+  image        String?
+  status       String    @default("active")
+  notes        String?
+  products     Product[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// 10. PRODUCT
 model Product {
-  id            String      @id @default(uuid())
+  id            String              @id @default(uuid())
+  productId     Int?                @unique
+  businessId    String?
+  business      Business?           @relation(fields: [businessId], references: [id])
+  categoryId    String?
+  categoryRef   Category?           @relation(fields: [categoryId], references: [id])
   brandId       String
-  brand         Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand         Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  productName   String
   titleAr       String
   titleEn       String
   category      String
   price         Float
   oldPrice      Float?
-  rating        Float       @default(5.0)
+  rating        Float               @default(5.0)
   image         String
-  images        String      @default("[]") // JSON string of images
-  sizes         String      @default("[\"S\",\"M\",\"L\",\"XL\",\"XXL\"]") // JSON string
-  colors        String      @default("[]") // JSON string of [{nameAr, nameEn, hex}]
+  images        String              @default("[]")
+  color         String?
+  size          String?
+  sizes         String              @default("[\"S\",\"M\",\"L\",\"XL\",\"XXL\"]")
+  colors        String              @default("[]")
+  material      String              @default("قطن مصري 100%")
+  sku           String?
   badgeAr       String?
   badgeEn       String?
+  description   String?
   descriptionAr String
   descriptionEn String
-  stock         Int         @default(50)
-  deliveryTime  String      @default("خلال 24 ساعة")
+  stock         Int                 @default(50)
+  status        String              @default("active")
+  deliveryTime  String              @default("خلال 24 ساعة")
+  notes         String?
+  
   orderItems    OrderItem[]
+  cartItems     CartItem[]
   reviews       Review[]
+  recognitions  ObjectRecognition[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+// 11. LOCATION
+model Location {
+  id           String   @id @default(uuid())
+  locationId   Int?     @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address      String
+  city         String
+  governorate  String
+  latitude     Float?
+  longitude    Float?
+  locationType String   @default("home")
+  notes        String?
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 12. ZONE
+model Zone {
+  id                    String   @id @default(uuid())
+  zoneId                Int?     @unique
+  zoneName              String
+  city                  String
+  governorate           String
+  deliveryFee           Float    @default(35.0)
+  estimatedDeliveryTime String   @default("خلال 24 ساعة")
+  status                String   @default("active")
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// 13. CART
+model Cart {
+  id          String     @id @default(uuid())
+  cartId      Int?       @unique
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String     @default("active")
+  total       Float      @default(0.0)
+  notes       String?
+  cartItems   CartItem[]
+  createdDate DateTime   @default(now())
+  updatedDate DateTime   @updatedAt
+}
+
+// 14. CART_ITEM
+model CartItem {
+  id         String   @id @default(uuid())
+  cartItemId Int?     @unique
+  cartId     String
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(1)
+}
+
+// 15. ORDER
+model Order {
+  id            String      @id @default(uuid())
+  orderId       Int?        @unique
+  userId        String?
+  user          User?       @relation("CustomerOrders", fields: [userId], references: [id])
+  locationId    String?
+  location      Location?   @relation(fields: [locationId], references: [id])
+  orderNumber   String      @unique
+  orderDate     DateTime    @default(now())
+  status        String      @default("collected_in_hub")
+  subtotal      Float
+  discount      Float       @default(0.0)
+  shippingFee   Float       @default(35.0)
+  tax           Float       @default(0.0)
+  total         Float
+  notes         String?
+
+  customerName  String
+  customerPhone String
+  governorate   String
+  city          String
+  address       String
+  deliveryLat   Float?
+  deliveryLng   Float?
+  shippingType  String      @default("standard")
+  paymentMethod String      @default("cod")
+  paymentStatus String      @default("unpaid")
+  otpCode       String
+  packageId     String?
+  qrCode        String?
+  barcode       String?
+  hubId         String?
+  hub           Hub?        @relation(fields: [hubId], references: [id])
+  driverId      String?
+  driver        User?       @relation("DriverOrders", fields: [driverId], references: [id])
+  driverVehicle String?
+  driverPlate   String?
+
+  items         OrderItem[]
+  payments      Payment[]
+  shipments     Shipment[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }
 
-// 📍 مراكز التجميع بالأحياء (Micro-Hubs)
+// 16. ORDER_ITEM
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderItemId Int?     @unique
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  quantity    Int      @default(1)
+  unitPrice   Float
+  productTitle String
+  brandName    String
+  size        String   @default("L")
+  color       String   @default("أزرق")
+  imageUrl    String?
+}
+
+// 17. PAYMENT
+model Payment {
+  id            String   @id @default(uuid())
+  paymentId     Int?     @unique
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentMethod String   @default("cod")
+  transactionId String?
+  amount        Float
+  paymentDate   DateTime @default(now())
+  status        String   @default("pending")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// 18. SHIPPING_COMPANY
+model ShippingCompany {
+  id                String     @id @default(uuid())
+  shippingCompanyId Int?       @unique
+  companyName       String
+  phone             String
+  email             String
+  address           String
+  website           String?
+  rating            Float      @default(4.8)
+  status            String     @default("active")
+  notes             String?
+  shipments         Shipment[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
+
+// 19. VEHICLE
+model Vehicle {
+  id              String     @id @default(uuid())
+  vehicleId       Int?       @unique
+  driverId        String?
+  driver          User?      @relation(fields: [driverId], references: [id])
+  vehicleType     String     @default("Van")
+  plateNumber     String
+  brand           String     @default("Daewoo")
+  model           String     @default("Carry")
+  modelYear       Int        @default(2022)
+  color           String     @default("أبيض")
+  capacity        Float      @default(600.0)
+  license         String     @default("نقل خفيف سارية")
+  status          String     @default("active")
+  currentLocation String?
+  notes           String?
+  shipments       Shipment[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+// 20. SHIPMENT
+model Shipment {
+  id                String           @id @default(uuid())
+  shipmentId        Int?             @unique
+  orderId           String
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shippingCompanyId String?
+  shippingCompany   ShippingCompany? @relation(fields: [shippingCompanyId], references: [id])
+  driverId          String?
+  driver            User?            @relation("DriverShipments", fields: [driverId], references: [id])
+  vehicleId         String?
+  vehicle           Vehicle?         @relation(fields: [vehicleId], references: [id])
+  trackingNumber    String           @unique
+  shippingStatus    String           @default("pending")
+  shippingFee       Float            @default(35.0)
+  pickupLocation    String
+  deliveryLocation  String
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+// 21. HUB (Micro-Hub Consolidation Center)
 model Hub {
   id          String   @id @default(uuid())
   name        String
   nameAr      String
-  code        String   @unique // e.g. "HUB-OCT-01", "HUB-MONUF-02"
-  governorate String   // e.g. "الجيزة" / "المنوفية"
-  city        String   // e.g. "6 أكتوبر" / "شبين الكوم"
+  code        String   @unique
+  governorate String
+  city        String
   address     String
   collectorId String?
   collector   User?    @relation("CollectorHubs", fields: [collectorId], references: [id])
@@ -100,84 +438,42 @@ model Hub {
   updatedAt   DateTime @updatedAt
 }
 
-// 📦 الطلبات والشحنات المجمعة
-model Order {
-  id            String      @id @default(uuid())
-  orderNumber   String      @unique // e.g. "ORD-9821"
-  customerId    String?
-  customer      User?       @relation("CustomerOrders", fields: [customerId], references: [id])
-  customerName  String
-  customerPhone String
-  governorate   String
-  city          String
-  address       String
-  
-  // 📱 إحداثيات موقع التسليم في الموبايل
-  deliveryLat   Float?
-  deliveryLng   Float?
-  
-  shippingType  String      @default("standard") // "standard" | "express"
-  shippingFee   Float       @default(35.0) // Flat 35 EGP Neighborhood Batch Delivery!
-  itemsTotal    Float
-  totalAmount   Float
-  paymentMethod String      @default("cod") // "cod" | "instapay" | "wallet" | "card"
-  paymentStatus String      @default("unpaid") // "unpaid" | "paid"
-  status        String      @default("collected_in_hub") // "pending" | "ready_for_collection" | "collected_in_hub" | "out_for_delivery" | "delivered" | "cancelled"
-  
-  // 🔐 أمان الاستلام وتأكيد الموبايل
-  otpCode       String      // 4-digit secret OTP code for doorstep handover
-  packageId     String?     // Consolidated batch package ID, e.g. "PKG-OCT-7701"
-  qrCode        String?     // QR code payload for driver scanner
-  barcode       String?     // Barcode for hub warehouse scanner
-  
-  hubId         String?
-  hub           Hub?        @relation(fields: [hubId], references: [id])
-  driverId      String?
-  driver        User?       @relation("DriverOrders", fields: [driverId], references: [id])
-  driverVehicle String?
-  driverPlate   String?
-  items         OrderItem[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
-
-// 🛍️ عناصر الطلب
-model OrderItem {
+// 22. OBJECT_RECOGNITION (AI Vision Results - Class Diagram Figure 4.3)
+model ObjectRecognition {
   id           String   @id @default(uuid())
-  orderId      String
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  recognitionId Int?    @unique
   productId    String?
   product      Product? @relation(fields: [productId], references: [id])
-  productTitle String
-  brandName    String
-  unitPrice    Float
-  quantity     Int      @default(1)
-  size         String   @default("L")
-  color        String   @default("أزرق")
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  objectName   String
+  confidence   Float
   imageUrl     String?
+  createdAt    DateTime @default(now())
 }
 
-// 🔔 الإشعارات الفورية (Web & Mobile Push)
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  type      String   @default("order") // "order" | "delivery" | "promotion" | "system"
-  read      Boolean  @default(false)
-  data      String?  // JSON metadata (e.g. { orderId: "ORD-9821" })
-  createdAt DateTime @default(now())
-}
-
-// ⭐ التقييمات والمراجعات
+// 23. REVIEW (Product Reviews - Class Diagram Figure 4.3)
 model Review {
   id        String   @id @default(uuid())
+  reviewId  Int?     @unique
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   rating    Int      @default(5)
   comment   String
+  createdAt DateTime @default(now())
+}
+
+// 24. NOTIFICATION
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("order")
+  read      Boolean  @default(false)
+  data      String?
   createdAt DateTime @default(now())
 }
