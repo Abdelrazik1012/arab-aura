@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  # 🌐 واجهة المستخدم الأمامية (React SPA + Nginx)
+  frontend:
+    build:
+      context: ./arab-aura-frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+    container_name: arab_aura_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - aura-network
+
+  # ⚙️ خادم الباك إند وواجهات برمجة التطبيقات (Express + TypeScript)
+  backend:
+    build:
+      context: ./arab-aura-backend
+      dockerfile: Dockerfile
+    container_name: arab_aura_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - NODE_ENV=production
+      - MONGODB_URI=${MONGODB_URI:-mongodb+srv://abdelrazikrbadr_db_user:4dolRmB4UOKkeV8y@cluster0.qwmqlar.mongodb.net/arab_aura?retryWrites=true&w=majority}
+      - JWT_SECRET=${JWT_SECRET:-arab_aura_super_secure_jwt_secret_key_2026}
+      - JWT_EXPIRES_IN=7d
+      - CORS_ORIGIN=*
+      - CLIENT_URL=http://localhost
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - aura-network
+
+  # 🗄️ قاعدة بيانات محلية اختيارية (عند تشغيل النظام بدون إنترنت: docker compose --profile offline up)
+  mongo:
+    image: mongo:7.0-jammy
+    container_name: arab_aura_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=arab_aura
+    profiles:
+      - offline
+    networks:
+      - aura-network
+
+networks:
+  aura-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local

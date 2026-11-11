@@ -14,17 +14,17 @@ const router = Router();
 
 router.get("/", cacheResponse(60), getProducts);
 router.get("/:id", cacheResponse(120), getProductById);
-router.post("/", authenticate, authorizeRoles("seller", "admin"), (req, res, next) => {
+router.post("/", authenticate, authorizeRoles("seller", "admin"), (req, res) => {
   clearProductCache();
-  createProduct(req, res, next);
+  createProduct(req, res);
 });
-router.put("/:id", authenticate, authorizeRoles("seller", "admin"), (req, res, next) => {
+router.put("/:id", authenticate, authorizeRoles("seller", "admin"), (req, res) => {
   clearProductCache();
-  updateProduct(req, res, next);
+  updateProduct(req, res);
 });
-router.delete("/:id", authenticate, authorizeRoles("seller", "admin"), (req, res, next) => {
+router.delete("/:id", authenticate, authorizeRoles("seller", "admin"), (req, res) => {
   clearProductCache();
-  deleteProduct(req, res, next);
+  deleteProduct(req, res);
 });
 
 export default router;
