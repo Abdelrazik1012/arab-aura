@@ -1,9 +1,9 @@
-import React from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
 import { usePlatform } from "../../context/PlatformContext";
-import type { AdminLayoutContextType } from "../../layouts/AdminLayout";
+import api from "../../services/api";
 import { InteractivePlatformMap } from "../../components/InteractivePlatformMap";
 import {
   PackageIcon,
@@ -23,29 +23,100 @@ export const AdminDashboardScreen: React.FC = () => {
   const { isDarkMode } = useTheme();
 
   const { orders } = usePlatform();
-  const totalRevenueNumber = orders.reduce(
-    (acc, curr) => acc + (curr.totalAmount || 0),
-    0,
-  );
-  const totalDelivered = orders.filter((o) => o.status === "delivered").length;
-  const activeOrdersCount = orders.filter(
-    (o) =>
-      o.status === "out_for_delivery" ||
-      o.status === "collected_in_hub" ||
-      o.status === "ready_for_collection",
-  ).length;
+  const [liveStats, setLiveStats] = useState<any>(null);
+  const [liveRecentUsers, setLiveRecentUsers] = useState<any[]>([]);
+  const [livePendingBrands, setLivePendingBrands] = useState<any[]>([]);
 
-  // 📊 مؤشرات النظام والتحليلات الشاملة
+  useEffect(() => {
+    const fetchAdminLive = async () => {
+      if (!localStorage.getItem("auth_token")) return;
+      try {
+        const [statsRes, usersRes, brandsRes] = await Promise.allSettled([
+          api.get("/admin/stats"),
+          api.get("/admin/users"),
+          api.get("/admin/brands"),
+        ]);
+        if (statsRes.status === "fulfilled" && statsRes.value.data?.data) {
+          setLiveStats(statsRes.value.data.data);
+        }
+        if (usersRes.status === "fulfilled" && Array.isArray(usersRes.value.data?.data)) {
+          setLiveRecentUsers(
+            usersRes.value.data.data.slice(0, 5).map((u: any) => ({
+              id: u._id,
+              name: u.name,
+              email: u.email,
+              role: u.role === "customer" ? "user" : u.role,
+              status: u.status || "active",
+            })),
+          );
+        }
+        if (brandsRes.status === "fulfilled" && Array.isArray(brandsRes.value.data?.data)) {
+          const pending = brandsRes.value.data.data
+            .filter((b: any) => b.status === "pending")
+            .slice(0, 4)
+            .map((b: any) => ({
+              id: b._id,
+              storeName: b.nameAr || b.name,
+              ownerName: b.seller?.name || "تاجر معتمد",
+              category: b.brandType || "ملابس وأزياء",
+              date: b.createdAt ? new Date(b.createdAt).toISOString().split("T")[0] : "2026-11-02",
+            }));
+          if (pending.length > 0) setLivePendingBrands(pending);
+        }
+      } catch {
+        // fallback gracefully
+      }
+    };
+    fetchAdminLive();
+  }, []);
+
+  const totalRevenueNumber = Math.max(
+    liveStats?.totalRevenue || 0,
+    orders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0),
+  );
+  const totalDelivered = Math.max(
+    liveStats?.deliveredOrders || 0,
+    orders.filter((o) => o.status === "delivered").length,
+  );
+  const activeOrdersCount = Math.max(
+    liveStats?.activeOrders || 0,
+    orders.filter(
+      (o) =>
+        o.status === "out_for_delivery" ||
+        o.status === "collected_in_hub" ||
+        o.status === "ready_for_collection" ||
+        o.status === "processing",
+    ).length,
+  );
+  const totalOrdersCount = Math.max(liveStats?.totalOrders || 0, orders.length);
+
+  // 📊 مؤشرات النظام والتحليلات الشاملة (متصلة حياً بقاعدة البيانات)
   const stats = {
-    totalUsers: "6 مستخدمين موثقين",
-    activeMerchants: "3 براندات معتمدة",
-    activeDrivers: "كباتن متصلة GPS",
-    activeCollectors: "2 مراكز تجميع بالأحياء",
-    totalOrdersCount: orders.length,
+    totalUsers: liveStats
+      ? isRtl
+        ? `${liveStats.totalUsers} مستخدم موثق`
+        : `${liveStats.totalUsers} Verified Users`
+      : "6 مستخدمين موثقين",
+    activeMerchants: liveStats
+      ? isRtl
+        ? `${liveStats.activeBrands || liveStats.sellersCount} براندات معتمدة`
+        : `${liveStats.activeBrands || liveStats.sellersCount} Active Brands`
+      : "3 براندات معتمدة",
+    activeDrivers: liveStats
+      ? isRtl
+        ? `${liveStats.driversCount} كباتن توصيل`
+        : `${liveStats.driversCount} Delivery Captains`
+      : "كباتن متصلة GPS",
+    activeCollectors: liveStats
+      ? isRtl
+        ? `${liveStats.totalHubs || liveStats.collectorsCount} مراكز تجميع بالأحياء`
+        : `${liveStats.totalHubs || liveStats.collectorsCount} Active Micro-Hubs`
+      : "2 مراكز تجميع بالأحياء",
+    totalOrdersCount,
     deliveredCount: totalDelivered,
     successRate:
-      orders.length > 0
-        ? `${Math.round((totalDelivered / orders.length) * 100)}%`
+      totalOrdersCount > 0
+        ? `${Math.round((totalDelivered / totalOrdersCount) * 100)}%`
         : "100%",
     failureRate: "0.0%",
     platformEfficiency: isRtl ? "ممتازة ومستقرة (Live Sync)" : "Optimal & Stable",
@@ -53,56 +124,62 @@ export const AdminDashboardScreen: React.FC = () => {
     totalRevenueCurrentMonth: `${totalRevenueNumber.toLocaleString()} EGP`,
     platformCommission: `${Math.round(totalRevenueNumber * 0.08).toLocaleString()} EGP`,
     activeDeliveriesToday: `${activeOrdersCount}`,
-    pendingApprovalsCount: "2",
+    pendingApprovalsCount: String(liveStats?.pendingBrands ?? livePendingBrands.length),
   };
 
-  const pendingApprovals = [
-    {
-      id: "CTR-501",
-      storeName: isRtl ? "متجر النيل للأزياء" : "Nile Fashion Store",
-      ownerName: isRtl ? "إبراهيم محمد" : "Ibrahim Mohamed",
-      category: isRtl ? "ملابس رجالي وكاجوال" : "Men's & Casual Wear",
-      date: "2026-11-02",
-    },
-    {
-      id: "CTR-503",
-      storeName: isRtl ? "أورا للأحذية والشنط" : "Aura Shoes & Bags",
-      ownerName: isRtl ? "سارة خالد" : "Sara Khaled",
-      category: isRtl ? "جلود وأحذية" : "Leather & Footwear",
-      date: "2026-11-03",
-    },
-  ];
+  const pendingApprovals =
+    livePendingBrands.length > 0
+      ? livePendingBrands
+      : [
+          {
+            id: "CTR-501",
+            storeName: isRtl ? "متجر النيل للأزياء" : "Nile Fashion Store",
+            ownerName: isRtl ? "إبراهيم محمد" : "Ibrahim Mohamed",
+            category: isRtl ? "ملابس رجالي وكاجوال" : "Men's & Casual Wear",
+            date: "2026-11-02",
+          },
+          {
+            id: "CTR-503",
+            storeName: isRtl ? "أورا للأحذية والشنط" : "Aura Shoes & Bags",
+            ownerName: isRtl ? "سارة خالد" : "Sara Khaled",
+            category: isRtl ? "جلود وأحذية" : "Leather & Footwear",
+            date: "2026-11-03",
+          },
+        ];
 
-  const recentUsers = [
-    {
-      id: "USR-101",
-      name: isRtl ? "عبدالرازق بدر" : "Abdelrazik Badr",
-      email: "abdelrazikrbadr@gmail.com",
-      role: "admin",
-      status: "active",
-    },
-    {
-      id: "USR-102",
-      name: isRtl ? "محمد أحمد" : "Mohamed Ahmed",
-      email: "seller@aura.com",
-      role: "seller",
-      status: "active",
-    },
-    {
-      id: "USR-103",
-      name: isRtl ? "محمود سعيد" : "Mahmoud Saeed",
-      email: "driver@aura.com",
-      role: "driver",
-      status: "active",
-    },
-    {
-      id: "USR-104",
-      name: isRtl ? "أحمد علي" : "Ahmed Ali",
-      email: "collector@aura.com",
-      role: "collector",
-      status: "active",
-    },
-  ];
+  const recentUsers =
+    liveRecentUsers.length > 0
+      ? liveRecentUsers
+      : [
+          {
+            id: "USR-101",
+            name: isRtl ? "عبدالرازق بدر" : "Abdelrazik Badr",
+            email: "admin@aura.com",
+            role: "admin",
+            status: "active",
+          },
+          {
+            id: "USR-102",
+            name: isRtl ? "مهندس كريم شريف" : "Karim Sherif",
+            email: "seller@aura.com",
+            role: "seller",
+            status: "active",
+          },
+          {
+            id: "USR-103",
+            name: isRtl ? "الكابتن أحمد محمود" : "Captain Ahmed",
+            email: "driver@aura.com",
+            role: "driver",
+            status: "active",
+          },
+          {
+            id: "USR-104",
+            name: isRtl ? "محمود حسن" : "Mahmoud Hassan",
+            email: "collector@aura.com",
+            role: "collector",
+            status: "active",
+          },
+        ];
 
   const t = {
     welcomeTitle: isRtl

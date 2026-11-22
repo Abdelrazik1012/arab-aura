@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
-import type { AdminLayoutContextType } from "../../layouts/AdminLayout";
+import api from "../../services/api";
 import {
   CloseIcon,
   CheckCircleIcon,
@@ -80,6 +79,32 @@ export const AdminUsersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
+  // 🌐 جلب جميع المستخدمين الحقيقيين من قاعدة بيانات MongoDB Atlas
+  useEffect(() => {
+    const loadRealUsers = async () => {
+      if (!localStorage.getItem("auth_token")) return;
+      try {
+        const res = await api.get("/admin/users");
+        const list = res.data?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          setUsers(
+            list.map((u: any) => ({
+              id: u._id || u.id,
+              name: u.name || "مستخدم عرب أورا",
+              email: u.email,
+              phone: u.phone || "",
+              role: u.role === "customer" ? "user" : u.role || "user",
+              status: u.status === "suspended" ? "suspended" : "active",
+            })),
+          );
+        }
+      } catch (e) {
+        console.warn("Could not fetch live admin users:", e);
+      }
+    };
+    loadRealUsers();
+  }, []);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -126,20 +151,47 @@ export const AdminUsersPage: React.FC = () => {
     setTimeout(() => setMsgSuccessToast(""), 5000);
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newEmail.trim()) return;
 
-    const newUser: SystemUser = {
-      id: `USR-${Math.floor(100 + Math.random() * 900)}`,
-      name: newName.trim(),
-      email: newEmail.trim(),
-      phone: newPhone.trim() || "+20 100 000 0000",
-      role: newRole,
-      status: "active",
-    };
+    try {
+      const res = await api.post("/admin/users", {
+        name: newName.trim(),
+        email: newEmail.trim().toLowerCase(),
+        phone: newPhone.trim(),
+        role: newRole,
+      });
+      const created = res.data?.data;
+      if (created) {
+        const mappedUser: SystemUser = {
+          id: created._id || created.id,
+          name: created.name,
+          email: created.email,
+          phone: created.phone || "",
+          role: created.role === "customer" ? "user" : created.role,
+          status: created.status || "active",
+        };
+        setUsers((prev) => [mappedUser, ...prev]);
+        setMsgSuccessToast(
+          isRtl
+            ? `تم إنشاء حساب "${mappedUser.name}" وحفظه في قاعدة البيانات بنجاح!`
+            : `User "${mappedUser.name}" created in database!`,
+        );
+        setTimeout(() => setMsgSuccessToast(""), 4000);
+      }
+    } catch {
+      const fallbackUser: SystemUser = {
+        id: `USR-${Math.floor(100 + Math.random() * 900)}`,
+        name: newName.trim(),
+        email: newEmail.trim(),
+        phone: newPhone.trim() || "+20 100 000 0000",
+        role: newRole,
+        status: "active",
+      };
+      setUsers((prev) => [fallbackUser, ...prev]);
+    }
 
-    setUsers([newUser, ...users]);
     setNewName("");
     setNewEmail("");
     setNewPhone("");
@@ -147,22 +199,29 @@ export const AdminUsersPage: React.FC = () => {
     setShowAddModal(false);
   };
 
-  const toggleStatus = (id: string) => {
+  const toggleStatus = async (id: string) => {
+    const target = users.find((u) => u.id === id);
+    if (!target) return;
+    const nextStatus = target.status === "active" ? "suspended" : "active";
+
     setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "active" ? "suspended" : "active" }
-          : u,
-      ),
+      prev.map((u) => (u.id === id ? { ...u, status: nextStatus } : u)),
     );
+
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      api.patch(`/admin/users/${id}`, { status: nextStatus }).catch(() => {});
+    }
   };
 
-  const handleDeleteUser = (id: string, name: string) => {
+  const handleDeleteUser = async (id: string, name: string) => {
     const confirmText = isRtl
       ? `هل أنت متأكد من حذف المستخدم "${name}" نهائياً؟`
       : `Are you sure you want to permanently delete user "${name}"?`;
     if (window.confirm(confirmText)) {
       setUsers((prev) => prev.filter((u) => u.id !== id));
+      if (/^[0-9a-fA-F]{24}$/.test(id)) {
+        api.delete(`/admin/users/${id}`).catch(() => {});
+      }
     }
   };
 

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
+import api from "../../services/api";
 import BrandLogo from "../../components/BrandLogo";
 import GlobalFooter from "../../components/GlobalFooter";
 import {
@@ -72,6 +73,47 @@ export const CustomerProductsPage: React.FC = () => {
   const [minPrice, setMinPrice] = useState<number>(100);
   const [maxPrice, setMaxPrice] = useState<number>(2500);
   const [minRating, setMinRating] = useState<number>(0);
+  const [backendProducts, setBackendProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const fetchLiveProducts = async () => {
+      try {
+        const res = await api.get("/products?limit=100");
+        const items = res.data?.data;
+        if (Array.isArray(items) && items.length > 0) {
+          const mapped: Product[] = items.map((bp: any) => ({
+            id: bp._id || bp.id,
+            brandId: typeof bp.brand === "object" ? bp.brand?._id || "b-townteam" : String(bp.brand || "b-townteam"),
+            brandName: bp.brandName || bp.brand?.name || "Town Team",
+            titleAr: bp.titleAr || bp.titleEn || "منتج عرب أورا",
+            titleEn: bp.titleEn || bp.titleAr || "Arab Aura Item",
+            category: bp.category || "men_tshirts",
+            price: Number(bp.price || 450),
+            oldPrice: bp.oldPrice ? Number(bp.oldPrice) : undefined,
+            sizes: Array.isArray(bp.sizes) && bp.sizes.length > 0 ? bp.sizes : ["S", "M", "L", "XL"],
+            colors:
+              Array.isArray(bp.colors) && bp.colors.length > 0
+                ? bp.colors
+                : [{ nameAr: "أسود", nameEn: "Black", hex: "#111827" }],
+            rating: Number(bp.rating || 4.8),
+            image: bp.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600",
+            deliveryTime: bp.deliveryTime || "خلال 24 ساعة",
+            city: bp.city || "6 أكتوبر",
+            shippingType: bp.shippingType === "express" ? "express" : "economy",
+            material: bp.material || "قطن مصري 100%",
+            badgeAr: bp.badgeAr || "متاح الآن (Live)",
+            badgeEn: bp.badgeEn || "Available Now",
+            descriptionAr: bp.descriptionAr || "منتج أصلي معتمد من منصة عرب أورا.",
+            descriptionEn: bp.descriptionEn || "Verified authentic item on 3ARB AURA.",
+          }));
+          setBackendProducts(mapped);
+        }
+      } catch {
+        // fallback gracefully to local catalog
+      }
+    };
+    fetchLiveProducts();
+  }, []);
 
   const resetAllFilters = () => {
     setFilterBrand("all");
@@ -271,8 +313,14 @@ export const CustomerProductsPage: React.FC = () => {
     { id: "women_shoes", labelAr: "أحذية حريمي", labelEn: "Women Shoes" },
   ];
 
+  // 🛍️ دمج المنتجات الحية من MongoDB في مقدمة المعرض
+  const allProductsList: Product[] = [
+    ...backendProducts,
+    ...productsList.filter((lp) => !backendProducts.some((bp) => bp.id === lp.id)),
+  ];
+
   // 🔍 معالجة دقيقة وشاملة للبحث والفلاتر المتقدمة
-  const filteredProducts = productsList.filter((prod) => {
+  const filteredProducts = allProductsList.filter((prod) => {
     const matchesSearch =
       searchQuery.trim() === "" ||
       prod.titleAr.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
@@ -834,7 +882,7 @@ export const CustomerProductsPage: React.FC = () => {
                     <div
                       className="space-y-2 sm:space-y-3 cursor-pointer"
                       onClick={() =>
-                        navigate(`/customer/product/${product.id}`)
+                        navigate(`/customer/product/${product.id}`, { state: { product } })
                       }
                     >
                       <div className="relative h-36 sm:h-52 md:h-60 w-full rounded-xl overflow-hidden mt-1 bg-slate-100">
@@ -876,7 +924,7 @@ export const CustomerProductsPage: React.FC = () => {
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-700 mt-3">
                       <button
                         onClick={() =>
-                          navigate(`/customer/product/${product.id}`)
+                          navigate(`/customer/product/${product.id}`, { state: { product } })
                         }
                         className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition text-xs shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                       >

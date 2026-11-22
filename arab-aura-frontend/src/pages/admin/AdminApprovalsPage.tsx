@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
-import type { AdminLayoutContextType } from "../../layouts/AdminLayout";
+import api from "../../services/api";
 import {
   CloseIcon,
   CheckCircleIcon,
@@ -80,40 +79,105 @@ export const AdminApprovalsPage: React.FC = () => {
   const [newContractType, setNewContractType] = useState("شراكة تجارية ولوجستية");
   const [newCommission, setNewCommission] = useState("10%");
 
+  // 🌐 جلب عقود المتاجر والبراندات الحقيقية من MongoDB
+  useEffect(() => {
+    const loadBrands = async () => {
+      if (!localStorage.getItem("auth_token")) return;
+      try {
+        const res = await api.get("/admin/brands");
+        const list = res.data?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          setContracts(
+            list.map((b: any) => ({
+              id: b._id || b.id,
+              storeName: b.nameAr || b.name || "متجر عرب أورا",
+              ownerName: b.seller?.name || "تاجر معتمد",
+              phone: b.seller?.phone || "+20 100 000 0000",
+              contractType: b.brandType || "شراكة تجارية ولوجستية",
+              commissionRate: b.notes?.match(/\d+%/)?.[0] || "10%",
+              requestDate: b.createdAt ? new Date(b.createdAt).toISOString().split("T")[0] : "2026-11-01",
+              status:
+                b.status === "terminated"
+                  ? "terminated"
+                  : b.status === "pending"
+                    ? "pending"
+                    : "approved",
+            })),
+          );
+        }
+      } catch (e) {
+        console.warn("Could not load live admin brands:", e);
+      }
+    };
+    loadBrands();
+  }, []);
+
   const handleApprove = (id: string) => {
     setContracts((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: "approved" } : c)),
     );
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      api.patch(`/admin/brands/${id}/status`, { status: "approved" }).catch(() => {});
+    }
   };
 
   const handleTerminate = (id: string) => {
     setContracts((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: "terminated" } : c)),
     );
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      api.patch(`/admin/brands/${id}/status`, { status: "terminated" }).catch(() => {});
+    }
   };
 
   const handleReactivate = (id: string) => {
     setContracts((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: "approved" } : c)),
     );
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      api.patch(`/admin/brands/${id}/status`, { status: "approved" }).catch(() => {});
+    }
   };
 
-  const handleAddContract = (e: React.FormEvent) => {
+  const handleAddContract = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStoreName.trim() || !newOwnerName.trim()) return;
 
-    const newContract: StoreContract = {
-      id: `CTR-${Math.floor(500 + Math.random() * 500)}`,
-      storeName: newStoreName.trim(),
-      ownerName: newOwnerName.trim(),
-      phone: newPhone.trim() || "+20 100 000 0000",
-      contractType: newContractType,
-      commissionRate: newCommission.trim() || "10%",
-      requestDate: new Date().toISOString().split("T")[0],
-      status: "pending",
-    };
+    try {
+      const res = await api.post("/admin/brands", {
+        storeName: newStoreName.trim(),
+        nameAr: newStoreName.trim(),
+        contractType: newContractType,
+        commissionRate: newCommission.trim() || "10%",
+      });
+      const created = res.data?.data;
+      if (created) {
+        const mapped: StoreContract = {
+          id: created._id || created.id,
+          storeName: created.nameAr || created.name,
+          ownerName: newOwnerName.trim() || created.seller?.name || "تاجر معتمد",
+          phone: newPhone.trim() || created.seller?.phone || "+20 100 000 0000",
+          contractType: created.brandType || newContractType,
+          commissionRate: newCommission.trim() || "10%",
+          requestDate: new Date().toISOString().split("T")[0],
+          status: "pending",
+        };
+        setContracts((prev) => [mapped, ...prev]);
+      }
+    } catch {
+      const newContract: StoreContract = {
+        id: `CTR-${Math.floor(500 + Math.random() * 500)}`,
+        storeName: newStoreName.trim(),
+        ownerName: newOwnerName.trim(),
+        phone: newPhone.trim() || "+20 100 000 0000",
+        contractType: newContractType,
+        commissionRate: newCommission.trim() || "10%",
+        requestDate: new Date().toISOString().split("T")[0],
+        status: "pending",
+      };
+      setContracts((prev) => [newContract, ...prev]);
+    }
 
-    setContracts([newContract, ...contracts]);
     setNewStoreName("");
     setNewOwnerName("");
     setNewPhone("");

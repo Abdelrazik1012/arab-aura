@@ -707,6 +707,128 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [products]);
 
+  // 🌐 مزامنة حية للطلبات والمنتجات من خادم MongoDB Atlas عبر الأجهزة المختلفة
+  useEffect(() => {
+    const mapBackendOrder = (bo: any): PlatformOrder => {
+      const id = bo.orderNumber || bo._id;
+      const createdDate = bo.createdAt
+        ? new Date(bo.createdAt).toISOString().slice(0, 16).replace("T", " ")
+        : new Date().toISOString().slice(0, 16).replace("T", " ");
+      return {
+        id,
+        customerName: bo.customerName || bo.customer?.name || "عميل عرب أورا",
+        customerEmail: bo.customerEmail || bo.customer?.email || "",
+        phone: bo.customerPhone || bo.customer?.phone || "01000000000",
+        city: bo.city || "6 أكتوبر",
+        governorate: bo.governorate || "الجيزة",
+        address: bo.address || "العنوان المسجل",
+        totalAmount: Number(bo.totalAmount || 0),
+        shippingFee: Number(bo.shippingFee || 35),
+        shippingType: bo.shippingType === "express" ? "express" : "standard",
+        paymentMethod: bo.paymentMethod || "cod",
+        paymentStatus: bo.paymentStatus || "unpaid",
+        status: bo.status || "pending",
+        sellerName: bo.items?.[0]?.brandName || "Town Team",
+        driverName: bo.driverName || "الكابتن أحمد محمود",
+        driverPhone: bo.driverPhone || "01092242607",
+        driverVehicle: bo.driverVehicle || "سيارة فان دايو كاري",
+        driverPlate: bo.driverPlate || "أ ب جـ 4589",
+        hubName: bo.hub?.nameAr || bo.hub?.name || "نقطة تجميع حي الأشجار - 6 أكتوبر",
+        packageId: bo.packageId,
+        otpCode: bo.otpCode,
+        lat: bo.deliveryLat || 30.0131,
+        lng: bo.deliveryLng || 31.2089,
+        originCoords: [30.0074, 30.9733],
+        destCoords: [bo.deliveryLat || 30.0131, bo.deliveryLng || 31.2089],
+        createdAt: createdDate,
+        items: (bo.items || []).map((it: any, idx: number) => ({
+          id: `${id}-it-${idx}`,
+          productId: String(it.product || `p-${idx}`),
+          productTitle: it.productTitle || "منتج من عرب أورا",
+          qty: Number(it.quantity || it.qty || 1),
+          unitPrice: Number(it.unitPrice || 0),
+          brandName: it.brandName || "Town Team",
+          size: it.size || "L",
+          color: it.color || "أسود",
+          imageUrl: it.imageUrl,
+        })),
+        timeline: [
+          {
+            status: bo.status || "pending",
+            titleAr: "متزامن حياً من قاعدة البيانات السحابية",
+            titleEn: "Synced live from cloud database",
+            timestamp: createdDate,
+            actor: "النظام السحابي",
+          },
+        ],
+      };
+    };
+
+    const syncFromBackend = async () => {
+      // 1. جلب المنتجات الحقيقية من MongoDB
+      try {
+        const prodRes = await api.get("/products?limit=100");
+        const backendProds = prodRes.data?.data;
+        if (Array.isArray(backendProds) && backendProds.length > 0) {
+          const mappedProds: PlatformProduct[] = backendProds.map((bp: any) => ({
+            id: bp._id || bp.id,
+            title: bp.titleAr || bp.titleEn || "منتج عرب أورا",
+            titleEn: bp.titleEn || bp.titleAr,
+            price: Number(bp.price || 0),
+            originalPrice: bp.oldPrice ? Number(bp.oldPrice) : undefined,
+            brandId: typeof bp.brand === "object" ? bp.brand?._id || "b-townteam" : String(bp.brand || "b-townteam"),
+            brandName: bp.brandName || bp.brand?.name || "Town Team",
+            category: bp.category || "mens",
+            imageUrl: bp.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600",
+            description: bp.descriptionAr || bp.descriptionEn || "",
+            descriptionEn: bp.descriptionEn || bp.descriptionAr || "",
+            stock: Number(bp.stock ?? 20),
+          }));
+          setProducts((prev) => {
+            const seen = new Set(mappedProds.map((p) => p.id));
+            const localOnly = prev.filter((p) => !seen.has(p.id));
+            return [...mappedProds, ...localOnly];
+          });
+        }
+      } catch {
+        // fallback gracefully in offline/test mode
+      }
+
+      // 2. جلب الطلبات الحقيقية من MongoDB حسب الدور النشط
+      const token = localStorage.getItem("auth_token");
+      const role = localStorage.getItem("user_role");
+      if (!role) return;
+
+      try {
+        let endpoint = "";
+        if (role === "admin" && token) endpoint = "/admin/orders";
+        else if (role === "collector" || role === "seller") endpoint = "/hubs/collector/orders";
+        else if (role === "driver") endpoint = "/driver/deliveries";
+        else if (token) endpoint = "/orders/my-orders";
+
+        if (!endpoint) return;
+        const ordRes = await api.get(endpoint);
+        const backendOrders = ordRes.data?.data;
+        if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+          const mapped = backendOrders.map(mapBackendOrder);
+          setOrders((prev) => {
+            const mappedById = new Map(mapped.map((o) => [o.id, o]));
+            const mergedLocal = prev
+              .filter((o) => !mappedById.has(o.id))
+              .slice(0, 50);
+            return [...mapped, ...mergedLocal];
+          });
+        }
+      } catch {
+        // fallback gracefully in offline/test mode
+      }
+    };
+
+    syncFromBackend();
+    window.addEventListener("auth-state-changed", syncFromBackend);
+    return () => window.removeEventListener("auth-state-changed", syncFromBackend);
+  }, []);
+
   // 1️⃣ إنشاء طلب جديد من المستهلك
   const placeOrder = (orderInput: {
     items: any[];
@@ -840,6 +962,11 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
     // 📡 مزامنة الطلب فوراً مع الباك إند (MongoDB API)
     try {
       api.post("/orders", {
+        orderNumber: newOrder.id,
+        otpCode: newOrder.otpCode,
+        customerEmail: newOrder.customerEmail,
+        deliveryLat: newOrder.lat,
+        deliveryLng: newOrder.lng,
         shippingAddress: {
           fullName: newOrder.customerName,
           phone: newOrder.phone,
@@ -930,6 +1057,14 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
         };
       }),
     );
+
+    // 📡 مزامنة تحديث الحالة مع الباك إند
+    api
+      .put(`/orders/${encodeURIComponent(orderId)}/status`, {
+        status: newStatus,
+        driverName: actorName,
+      })
+      .catch((e) => console.log("Order status backend sync notice:", e.message));
   };
 
   // 3️⃣ تعديل تفاصيل الطلب (خاص بالأدمن)
@@ -940,11 +1075,23 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, ...updates } : ord)),
     );
+
+    if (localStorage.getItem("auth_token")) {
+      api
+        .put(`/admin/orders/${encodeURIComponent(orderId)}`, updates)
+        .catch((e) => console.log("Admin order update sync notice:", e.message));
+    }
   };
 
   // 4️⃣ حذف الطلب
   const deleteOrder = (orderId: string) => {
     setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+
+    if (localStorage.getItem("auth_token")) {
+      api
+        .delete(`/admin/orders/${encodeURIComponent(orderId)}`)
+        .catch((e) => console.log("Admin order delete sync notice:", e.message));
+    }
   };
 
   // 5️⃣ إنشاء وتجميع حزمة ذكية (Package) من الكوليكتور
@@ -1002,6 +1149,16 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
         return ord;
       }),
     );
+
+    // 📡 مزامنة تجميع الحزمة مع الباك إند
+    if (localStorage.getItem("auth_token")) {
+      api
+        .post("/hubs/consolidate", {
+          packageId: newPackageId,
+          orderIds: packageInput.orderIds,
+        })
+        .catch((e) => console.log("Package consolidate sync notice:", e.message));
+    }
 
     return newPkg;
   };
@@ -1082,6 +1239,14 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
         return ord;
       }),
     );
+
+    // 📡 مزامنة قبول السائق مع الباك إند
+    api
+      .put(`/orders/${encodeURIComponent(orderId)}/status`, {
+        status: "out_for_delivery",
+        driverName,
+      })
+      .catch((e) => console.log("Express accept sync notice:", e.message));
   };
 
   // 8️⃣ إضافة وحذف المنتجات
@@ -1093,11 +1258,43 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({
       id: `prod-${Date.now()}`,
     };
     setProducts((prev) => [newProduct, ...prev]);
+
+    if (localStorage.getItem("auth_token")) {
+      api
+        .post("/products", {
+          titleAr: productInput.title,
+          titleEn: productInput.titleEn || productInput.title,
+          brandName: productInput.brandName,
+          category: productInput.category,
+          price: productInput.price,
+          oldPrice: productInput.originalPrice,
+          image: productInput.imageUrl,
+          descriptionAr: productInput.description,
+          descriptionEn: productInput.descriptionEn || productInput.description,
+          stock: productInput.stock,
+        })
+        .then((res) => {
+          const saved = res.data?.data;
+          if (saved?._id) {
+            setProducts((prev) =>
+              prev.map((p) => (p.id === newProduct.id ? { ...p, id: saved._id } : p)),
+            );
+          }
+        })
+        .catch((e) => console.log("Product create sync notice:", e.message));
+    }
+
     return newProduct;
   };
 
   const deleteProduct = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
+
+    if (localStorage.getItem("auth_token") && /^[0-9a-fA-F]{24}$/.test(productId)) {
+      api
+        .delete(`/products/${productId}`)
+        .catch((e) => console.log("Product delete sync notice:", e.message));
+    }
   };
 
   // 9️⃣ استيراد المنتجات من السوشيال ميديا

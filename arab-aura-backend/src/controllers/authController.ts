@@ -141,19 +141,34 @@ export const login = async (req: Request, res: Response) => {
       return sendError(res, "بيانات الدخول غير صحيحة", 401);
     }
 
+    if (user.status === "suspended") {
+      return sendError(
+        res,
+        "تم إيقاف هذا الحساب مؤقتاً من قِبل الإدارة، يرجى التواصل مع الدعم الفني.",
+        403
+      );
+    }
+
+    // كلمات المرور التجريبية مسموحة فقط للحسابات الرسمية الـ 5 (@aura.com) وليس لحسابات العملاء الحقيقيين
+    const isSeededDemoAccount = user.email.toLowerCase().endsWith("@aura.com");
     const isStandardDemoPassword =
-      password === "password123" ||
-      password === "12345678" ||
-      password.toLowerCase() === "admin@123" ||
-      password.toLowerCase() === "seller@123" ||
-      password.toLowerCase() === "driver@123" ||
-      password.toLowerCase() === "collector@123" ||
-      password.toLowerCase() === "customer@123";
+      isSeededDemoAccount &&
+      (password === "password123" ||
+        password === "12345678" ||
+        password.toLowerCase() === "admin@123" ||
+        password.toLowerCase() === "seller@123" ||
+        password.toLowerCase() === "driver@123" ||
+        password.toLowerCase() === "collector@123" ||
+        password.toLowerCase() === "customer@123");
+
+    const isGoogleAccountMatch =
+      Boolean(user.googleId) &&
+      password.toLowerCase() === user.email.toLowerCase();
 
     const isMatch =
       (await user.comparePassword(password)) ||
       isStandardDemoPassword ||
-      password.toLowerCase() === user.email.toLowerCase();
+      isGoogleAccountMatch;
     if (!isMatch) {
       return sendError(res, "بيانات الدخول غير صحيحة", 401);
     }
@@ -509,8 +524,9 @@ export const verifyResetOtp = async (req: Request, res: Response) => {
       return sendError(res, "الحساب غير مسجل في النظام", 404);
     }
 
-    // رمز تجريبي احتياطي
-    if (codeStr === "123456") {
+    // رمز تجريبي احتياطي للحسابات التجريبية (@aura.com) فقط لحماية حسابات المستخدمين الحقيقيين
+    const isSeededDemoAccount = user.email.toLowerCase().endsWith("@aura.com");
+    if (isSeededDemoAccount && codeStr === "123456") {
       return sendSuccess(res, "تم التحقق من الرمز بنجاح! يمكنك الآن تعيين كلمة المرور الجديدة.", {
         verified: true,
         email: user.email,
@@ -569,7 +585,8 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
       return sendError(res, "الحساب غير مسجل في النظام", 404);
     }
 
-    let isValid = codeStr === "123456";
+    const isSeededDemoAccount = user.email.toLowerCase().endsWith("@aura.com");
+    let isValid = isSeededDemoAccount && codeStr === "123456";
 
     if (!isValid && user.resetOtp === codeStr) {
       if (!user.resetOtpExpires || user.resetOtpExpires.getTime() >= Date.now()) {

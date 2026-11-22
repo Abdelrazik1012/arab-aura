@@ -11,6 +11,7 @@ export interface IUser extends Document {
   password: string;
   phone?: string;
   role: UserRole;
+  status: "active" | "suspended";
   avatar?: string;
   nationalId?: string;
   birthDate?: string;
@@ -61,6 +62,11 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ["customer", "seller", "collector", "driver", "admin"],
       default: "customer",
+    },
+    status: {
+      type: String,
+      enum: ["active", "suspended"],
+      default: "active",
     },
     avatar: { type: String },
     nationalId: { type: String, trim: true },

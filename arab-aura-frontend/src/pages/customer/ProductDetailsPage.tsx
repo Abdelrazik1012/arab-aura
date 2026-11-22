@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
+import api from "../../services/api";
 import BrandLogo from "../../components/BrandLogo";
 import GlobalFooter from "../../components/GlobalFooter";
 import {
@@ -66,7 +67,10 @@ interface AnalysisResult {
 }
 
 export const ProductDetailsPage: React.FC = () => {
-  const { productId } = useParams<{ productId: string }>();
+  const { id, productId } = useParams<{ id?: string; productId?: string }>();
+  const resolvedProductId = id || productId || "prod-1";
+  const location = useLocation();
+  const passedProduct = (location.state as any)?.product;
   const navigate = useNavigate();
   const { lang, toggleLanguage } = useLanguage();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -171,6 +175,18 @@ export const ProductDetailsPage: React.FC = () => {
     };
 
     setReviewsList((prev) => [newRev, ...prev]);
+
+    // 📡 حفظ التقييم حياً في MongoDB إن كان المنتج مسجلاً في قاعدة البيانات
+    if (/^[0-9a-fA-F]{24}$/.test(resolvedProductId) && localStorage.getItem("auth_token")) {
+      api
+        .post(`/products/${resolvedProductId}/reviews`, {
+          rating: newReviewRating,
+          comment: newReviewComment.trim(),
+          sizeBought: newReviewSize,
+        })
+        .catch(() => {});
+    }
+
     setReviewSubmitFeedback(
       lang === "ar"
         ? "✓ شكراً لك! تم نشر تقييمك للمنتج بنجاح."
@@ -184,33 +200,94 @@ export const ProductDetailsPage: React.FC = () => {
     }, 1800);
   };
 
-  // بيانات المنتج
-  const product = {
-    id: productId || "prod-1",
-    brandName: "Town Team",
-    titleAr: "تيشيرت بولو قطن مطرز كاجوال أنيق",
-    titleEn: "Embroidered Cotton Polo T-Shirt",
-    price: 550.0,
-    oldPrice: 750.0,
-    rating: 4.9,
-    reviewsCount: 128,
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: [
-      { nameAr: "أبيض قطني", nameEn: "Cotton White", hex: "#FFFFFF" },
-      { nameAr: "كحلي داكن", nameEn: "Dark Navy", hex: "#1B2A4A" },
-      { nameAr: "رمادي هادئ", nameEn: "Muted Grey", hex: "#4A5568" },
-    ],
-    images: [
-      "https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80",
-      "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&q=80",
-    ],
+  // بيانات المنتج (تُحمّل من المنتج المختار أو من MongoDB API مباشرة)
+  const buildProductState = (src?: any) => ({
+    id: src?._id || src?.id || resolvedProductId,
+    brandName: src?.brandName || src?.brand?.name || "Town Team",
+    titleAr: src?.titleAr || src?.title || "تيشيرت بولو قطن مطرز كاجوال أنيق",
+    titleEn: src?.titleEn || src?.title || "Embroidered Cotton Polo T-Shirt",
+    price: Number(src?.price || 550.0),
+    oldPrice: Number(src?.oldPrice || (src?.price ? Math.round(Number(src.price) * 1.25) : 750.0)),
+    rating: Number(src?.rating || 4.9),
+    reviewsCount: Number(src?.reviewsCount || 128),
+    sizes: (
+      Array.isArray(src?.sizes) && src.sizes.length > 0
+        ? src.sizes
+        : ["S", "M", "L", "XL", "XXL"]
+    ) as string[],
+    colors: (
+      Array.isArray(src?.colors) && src.colors.length > 0
+        ? src.colors
+        : [
+            { nameAr: "أبيض قطني", nameEn: "Cotton White", hex: "#FFFFFF" },
+            { nameAr: "كحلي داكن", nameEn: "Dark Navy", hex: "#1B2A4A" },
+            { nameAr: "رمادي هادئ", nameEn: "Muted Grey", hex: "#4A5568" },
+          ]
+    ) as ColorOption[],
+    images: (
+      Array.isArray(src?.images) && src.images.length > 0
+        ? src.images
+        : src?.image
+          ? [src.image, ...(Array.isArray(src.additionalImages) ? src.additionalImages : [])]
+          : [
+              "https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80",
+              "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&q=80",
+            ]
+    ) as string[],
     descriptionAr:
+      src?.descriptionAr ||
       "تم تصميم هذا التيشيرت من أنقى ألياف القطن المصري طويل التيلة لتوفير أقصى درجات الراحة والمرونة، مع ياقة مقواة تقاوم التلف مع الغسيل المتكرر لمظهر مميز وجذاب.",
     descriptionEn:
+      src?.descriptionEn ||
       "Crafted from fine long-staple Egyptian cotton for maximum comfort and durability. Features a reinforced collar that retains its crisp shape.",
-  };
+  });
 
+  const [product, setProduct] = useState(() => buildProductState(passedProduct));
   const [activeImage, setActiveImage] = useState(product.images[0]);
+
+  useEffect(() => {
+    if (passedProduct) {
+      const next = buildProductState(passedProduct);
+      setProduct(next);
+      setActiveImage(next.images[0]);
+      if (next.colors[0]) setSelectedColor(next.colors[0]);
+    }
+    if (/^[0-9a-fA-F]{24}$/.test(resolvedProductId)) {
+      api
+        .get(`/products/${resolvedProductId}`)
+        .then((res) => {
+          const bp = res.data?.data;
+          if (bp) {
+            const next = buildProductState(bp);
+            setProduct(next);
+            setActiveImage(next.images[0]);
+            if (next.colors[0]) setSelectedColor(next.colors[0]);
+          }
+        })
+        .catch(() => {});
+
+      api
+        .get(`/products/${resolvedProductId}/reviews`)
+        .then((res) => {
+          const revs = res.data?.data;
+          if (Array.isArray(revs) && revs.length > 0) {
+            setReviewsList(
+              revs.map((r: any) => ({
+                id: r._id || r.id,
+                userName: r.user?.name || r.userName || "عميل عرب أورا",
+                userCity: r.userCity || "مصر",
+                rating: Number(r.rating || 5),
+                date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("ar-EG") : "حديثاً",
+                sizeBought: r.sizeBought || "L",
+                comment: r.comment || "",
+                verifiedBuyer: true,
+              })),
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [resolvedProductId]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

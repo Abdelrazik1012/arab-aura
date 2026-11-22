@@ -14,6 +14,7 @@ export interface IOrderItem {
 
 export type OrderStatus =
   | "pending"
+  | "processing"
   | "ready_for_collection"
   | "collected_in_hub"
   | "out_for_delivery"
@@ -24,6 +25,7 @@ export interface IOrder extends Document {
   orderNumber: string;
   customer?: Types.ObjectId;
   customerName: string;
+  customerEmail?: string;
   customerPhone: string;
   governorate: string;
   city: string;
@@ -34,8 +36,8 @@ export interface IOrder extends Document {
   shippingFee: number;
   itemsTotal: number;
   totalAmount: number;
-  paymentMethod: "cod" | "instapay" | "wallet" | "card";
-  paymentStatus: "unpaid" | "paid";
+  paymentMethod: "cod" | "instapay" | "wallet" | "card" | "vodafone_cash" | "fawry" | "paypal";
+  paymentStatus: "unpaid" | "paid" | "pending_verification";
   status: OrderStatus;
   otpCode: string;
   packageId?: string;
@@ -71,6 +73,7 @@ const OrderSchema = new Schema<IOrder>(
     orderNumber: { type: String, required: true, unique: true, index: true },
     customer: { type: Schema.Types.ObjectId, ref: "User" },
     customerName: { type: String, required: true },
+    customerEmail: { type: String },
     customerPhone: { type: String, required: true },
     governorate: { type: String, required: true },
     city: { type: String, required: true },
@@ -83,25 +86,26 @@ const OrderSchema = new Schema<IOrder>(
     totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,
-      enum: ["cod", "instapay", "wallet", "card"],
+      enum: ["cod", "instapay", "wallet", "card", "vodafone_cash", "fawry", "paypal"],
       default: "cod",
     },
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "paid"],
+      enum: ["unpaid", "paid", "pending_verification"],
       default: "unpaid",
     },
     status: {
       type: String,
       enum: [
         "pending",
+        "processing",
         "ready_for_collection",
         "collected_in_hub",
         "out_for_delivery",
         "delivered",
         "cancelled",
       ],
-      default: "collected_in_hub",
+      default: "pending",
       index: true,
     },
     otpCode: { type: String, required: true },

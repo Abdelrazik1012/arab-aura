@@ -65,10 +65,10 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // توليد رقم أوردر فريد ورقم كود OTP سري من 4 أرقام
+    // توليد رقم أوردر فريد ورقم كود OTP سري من 4 أرقام (أو استخدام القادم من الواجهة لمزامنة الهوية)
     const randNum = Math.floor(1000 + Math.random() * 9000);
-    const orderNumber = `ORD-${Date.now().toString().slice(-4)}${randNum.toString().slice(-2)}`;
-    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+    const orderNumber = req.body.orderNumber || `ORD-${Date.now().toString().slice(-4)}${randNum.toString().slice(-2)}`;
+    const otpCode = req.body.otpCode || Math.floor(1000 + Math.random() * 9000).toString();
     const packageId = `PKG-OCT-${randNum}`;
 
     // ربط تلقائي بأقرب مركز تجميع في المنطقة
@@ -92,6 +92,7 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       orderNumber,
       customer: req.user ? req.user.id : undefined,
       customerName: shippingAddress.fullName,
+      customerEmail: req.user?.email || shippingAddress.email || req.body.customerEmail,
       customerPhone: shippingAddress.phone,
       governorate: shippingAddress.governorate || "الجيزة",
       city: shippingAddress.city || "6 أكتوبر",
@@ -133,7 +134,9 @@ export const getMyOrders = async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) return sendError(res, "غير مصرح", 401);
 
-    const orders = await Order.find({ customer: req.user.id })
+    const orders = await Order.find({
+      $or: [{ customer: req.user.id }, { customerEmail: req.user.email }],
+    })
       .populate("hub", "name nameAr code address")
       .sort({ createdAt: -1 });
 
@@ -237,9 +240,18 @@ export const verifyOtp = async (req: Request, res: Response) => {
 export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, driverName } = req.body;
 
-    const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+    const query = id.match(/^[0-9a-fA-F]{24}$/)
+      ? { $or: [{ _id: id }, { orderNumber: id }] }
+      : { orderNumber: id };
+
+    const updatePayload: any = {};
+    if (status) updatePayload.status = status;
+    if (driverName) updatePayload.driverName = driverName;
+    if (status === "delivered") updatePayload.paymentStatus = "paid";
+
+    const order = await Order.findOneAndUpdate(query, updatePayload, { new: true });
     if (!order) return sendError(res, "الطلب غير موجود", 404);
 
     return sendSuccess(res, "تم تحديث حالة الشحنة بنجاح", order);

@@ -8,6 +8,7 @@ import sellerRoutes from "./sellerRoutes";
 import driverRoutes from "./driverRoutes";
 import aiRoutes from "./aiRoutes";
 import walletRoutes from "./walletRoutes";
+import adminRoutes from "./adminRoutes";
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use("/seller", sellerRoutes);
 router.use("/driver", driverRoutes);
 router.use("/ai", aiRoutes);
 router.use("/wallet", walletRoutes);
+router.use("/admin", adminRoutes);
 
 // Health check endpoint
 router.get("/health", (_req, res) => {
