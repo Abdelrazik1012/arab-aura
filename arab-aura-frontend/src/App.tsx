@@ -52,6 +52,7 @@ import AdminDashboardScreen from "./pages/admin/AdminDashboardScreen";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 import AdminApprovalsPage from "./pages/admin/AdminApprovalsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminProfilePage from "./pages/admin/AdminProfilePage";
 
 // 🛡️ استدعاء ودجت التنقل السريع للأدمن
 import AdminFloatingWidget from "./components/AdminFloatingWidget";
@@ -61,14 +62,22 @@ const RoleBasedRoute: React.FC<{
   allowedRole: string;
   children: React.ReactNode;
 }> = ({ allowedRole, children }) => {
-  const rawRole = localStorage.getItem("user_role") || "user";
-  // توحيد دور العميل سواء كان "customer" أو "user" لمنع التوجيه اللانهائي
-  const currentRole = rawRole === "customer" ? "user" : rawRole;
+  const storedRole = localStorage.getItem("user_role");
   const normalizedAllowedRole = allowedRole === "customer" ? "user" : allowedRole;
 
+  // منع الوصول لصفحات الأدمن إذا كان المستخدم غير مسجل دخول
+  if (normalizedAllowedRole === "admin" && !storedRole) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const rawRole = storedRole || "user";
+  // توحيد دور العميل سواء كان "customer" أو "user" لمنع التوجيه اللانهائي
+  const currentRole = rawRole === "customer" ? "user" : rawRole;
+
   const isSuperAdmin =
-    localStorage.getItem("original_admin") === "true" ||
-    currentRole === "admin";
+    Boolean(storedRole) &&
+    (localStorage.getItem("original_admin") === "true" ||
+      currentRole === "admin");
 
   // للأدمن صلاحية الوصول الشامل لجميع الشاشات بصفته الإدارية
   if (isSuperAdmin || currentRole === normalizedAllowedRole) {
@@ -285,6 +294,10 @@ const AppContent: React.FC = () => {
           <Route
             path="/admin/users"
             element={<AdminUsersPage />}
+          />
+          <Route
+            path="/admin/profile"
+            element={<AdminProfilePage />}
           />
         </Route>
         <Route

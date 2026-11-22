@@ -41,10 +41,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // تفريغ البيانات والتوجيه لتسجيل الدخول عند انتهاء السيشن
-      localStorage.removeItem("user_data");
-      localStorage.removeItem("user_role");
-      window.location.href = "/login";
+      // تفريغ البيانات والتوجيه لتسجيل الدخول عند انتهاء السيشن (عدا صفحة الدخول نفسها)
+      if (window.location.pathname !== "/login") {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_data");
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("original_admin");
+        localStorage.removeItem("admin_profile");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },

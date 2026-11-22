@@ -32,6 +32,8 @@ export class ErrorBoundary extends Component<Props, State> {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_data");
       localStorage.removeItem("user_role");
+      localStorage.removeItem("original_admin");
+      localStorage.removeItem("admin_profile");
     } catch {
       // ignore
     }

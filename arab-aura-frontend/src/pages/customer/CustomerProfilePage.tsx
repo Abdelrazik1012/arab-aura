@@ -143,10 +143,9 @@ export const CustomerProfilePage: React.FC = () => {
   const textColor = isDarkMode ? "#FFFFFF" : "#000000";
   const subTextColor = isDarkMode ? "#CBD5E1" : "#334155";
 
-  // 🚪 دالة تسجيل الخروج المسئولة عن تنظيف الـ Storage والتوجيه لصفحة اللوجن
+  // 🚪 دالة تسجيل الخروج المسئولة عن تنظيف الـ Storage وإغلاق وضع الأدمن بالكامل
   const handleLogout = () => {
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("auth_token");
+    authService.logout();
     navigate("/login");
   };
 

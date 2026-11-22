@@ -5,6 +5,7 @@ import { useTheme } from "../../context/ThemeContext";
 import BrandLogo from "../../components/BrandLogo";
 import InteractivePlatformMap from "../../components/InteractivePlatformMap";
 import api from "../../services/api";
+import { authService } from "../../services/authService";
 import {
   LogoutIcon,
   SunIcon,
@@ -234,8 +235,7 @@ export const SellerDashboardScreen: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("auth_token");
+    authService.logout();
     navigate("/login");
   };
 

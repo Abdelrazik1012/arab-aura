@@ -199,7 +199,11 @@ const LoginScreen: React.FC = () => {
         localStorage.setItem("user_phone", data.user.phone || "01012345678");
         if (data.user.role === "admin") {
           localStorage.setItem("original_admin", "true");
+        } else {
+          localStorage.removeItem("original_admin");
+          localStorage.removeItem("admin_profile");
         }
+        window.dispatchEvent(new Event("auth-state-changed"));
         redirectByRole(userRole);
         return;
       }
@@ -235,7 +239,12 @@ const LoginScreen: React.FC = () => {
         localStorage.setItem("user_phone", foundUser.phone);
         if (foundUser.role === "admin") {
           localStorage.setItem("original_admin", "true");
+          localStorage.setItem("admin_profile", JSON.stringify(foundUser));
+        } else {
+          localStorage.removeItem("original_admin");
+          localStorage.removeItem("admin_profile");
         }
+        window.dispatchEvent(new Event("auth-state-changed"));
         redirectByRole(foundUser.role);
       }, 200);
       return;

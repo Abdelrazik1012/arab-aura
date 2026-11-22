@@ -5,6 +5,7 @@ import { usePlatform } from "../../context/PlatformContext";
 import { useTheme } from "../../context/ThemeContext";
 import type { OrderStatus } from "../../context/PlatformContext";
 import BrandLogo from "../../components/BrandLogo";
+import { authService } from "../../services/authService";
 import {
   LogoutIcon,
   SunIcon,
@@ -53,8 +54,7 @@ export const SellerOrdersPage: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("auth_token");
+    authService.logout();
     navigate("/login");
   };
 

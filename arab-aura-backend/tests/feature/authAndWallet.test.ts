@@ -1,6 +1,6 @@
 // tests/feature/authAndWallet.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { register, login, forgotPassword, verifyResetOtp } from "../../src/controllers/authController";
+import { register, login, forgotPassword, verifyResetOtp, updateProfile } from "../../src/controllers/authController";
 import { deposit, withdraw } from "../../src/controllers/walletController";
 import { User } from "../../src/models/User";
 import { WalletTransaction } from "../../src/models/WalletTransaction";
@@ -229,5 +229,49 @@ describe("Auth & Wallet Financial Transactions Feature Tests", () => {
     const body = (res.json as any).mock.calls[0][0];
     expect(body.success).toBe(true);
     expect(body.data.verified).toBe(true);
+  });
+
+  it("should allow admin to update profile name, avatar, and hashed newPassword", async () => {
+    const updatedMockUser = {
+      _id: "admin-001",
+      name: "عبد الرازق بدر - المدير التنفيذي",
+      email: "admin@aura.com",
+      phone: "01092242607",
+      avatar: "data:image/jpeg;base64,TESTAVATAR",
+      role: "admin",
+      toObject: () => ({
+        _id: "admin-001",
+        name: "عبد الرازق بدر - المدير التنفيذي",
+        email: "admin@aura.com",
+        phone: "01092242607",
+        avatar: "data:image/jpeg;base64,TESTAVATAR",
+        role: "admin",
+      }),
+    };
+
+    vi.spyOn(User, "findOne").mockResolvedValue(null);
+    const updateSpy = vi.spyOn(User, "findByIdAndUpdate").mockReturnValue({
+      select: vi.fn().mockResolvedValue(updatedMockUser),
+    } as any);
+
+    const req = {
+      user: { id: "admin-001", email: "admin@aura.com", role: "admin", name: "Admin" },
+      body: {
+        name: "عبد الرازق بدر - المدير التنفيذي",
+        avatar: "data:image/jpeg;base64,TESTAVATAR",
+        newPassword: "newAdminPassword2026",
+      },
+    } as AuthenticatedRequest;
+    const res = createMockResponse();
+
+    await updateProfile(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(updateSpy).toHaveBeenCalled();
+    const updatePayload = updateSpy.mock.calls[0][1] as any;
+    expect(updatePayload.name).toBe("عبد الرازق بدر - المدير التنفيذي");
+    expect(updatePayload.avatar).toBe("data:image/jpeg;base64,TESTAVATAR");
+    expect(updatePayload.password).toBeDefined();
+    expect(updatePayload.password).not.toBe("newAdminPassword2026"); // Must be bcrypt hashed
   });
 });

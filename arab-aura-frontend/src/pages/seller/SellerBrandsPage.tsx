@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
 import BrandLogo from "../../components/BrandLogo";
+import { authService } from "../../services/authService";
 import {
   LogoutIcon,
   SunIcon,
@@ -57,8 +58,7 @@ export const SellerBrandsPage: React.FC = () => {
   const isRtl = lang === "ar";
 
   const handleLogout = () => {
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("auth_token");
+    authService.logout();
     navigate("/login");
   };
 

@@ -13,6 +13,7 @@ export interface RegisterData {
   username?: string;
   email: string;
   password?: string;
+  newPassword?: string;
   phone?: string;
   role?: string;
   nationalId?: string;
@@ -24,6 +25,22 @@ export interface RegisterData {
   secondaryAddress?: string;
   secondaryPhone?: string;
 }
+
+const syncAdminBackup = (user: any) => {
+  if (!user) return;
+  const currentBackup = JSON.parse(localStorage.getItem("admin_profile") || "{}");
+  const updated = {
+    ...currentBackup,
+    name: user.name || currentBackup.name || "عبد الرازق بدر (المدير التنفيذي)",
+    email: user.email || currentBackup.email || "admin@aura.com",
+    username: user.username || currentBackup.username || "admin",
+    phone: user.phone || currentBackup.phone || "01092242607",
+    avatar: user.avatar !== undefined ? user.avatar : currentBackup.avatar || "",
+    nationalId: user.nationalId !== undefined ? user.nationalId : currentBackup.nationalId || "",
+    birthDate: user.birthDate !== undefined ? user.birthDate : currentBackup.birthDate || "",
+  };
+  localStorage.setItem("admin_profile", JSON.stringify(updated));
+};
 
 export const authService = {
   async login(credentials: LoginCredentials) {
@@ -38,6 +55,19 @@ export const authService = {
         localStorage.setItem("user_name", user.name || "");
         localStorage.setItem("user_email", user.email || "");
         localStorage.setItem("user_phone", user.phone || "");
+        if (user.avatar) {
+          localStorage.setItem("user_avatar", user.avatar);
+        } else {
+          localStorage.removeItem("user_avatar");
+        }
+        if (user.role === "admin") {
+          localStorage.setItem("original_admin", "true");
+          syncAdminBackup(user);
+        } else {
+          localStorage.removeItem("original_admin");
+          localStorage.removeItem("admin_profile");
+        }
+        window.dispatchEvent(new Event("auth-state-changed"));
         return response.data.data;
       }
       throw new Error(response.data?.message || "فشل تسجيل الدخول");
@@ -58,6 +88,14 @@ export const authService = {
       localStorage.setItem("user_name", user.name || "");
       localStorage.setItem("user_email", user.email || "");
       localStorage.setItem("user_phone", user.phone || "");
+      localStorage.removeItem("original_admin");
+      localStorage.removeItem("admin_profile");
+      if (user.avatar) {
+        localStorage.setItem("user_avatar", user.avatar);
+      } else {
+        localStorage.removeItem("user_avatar");
+      }
+      window.dispatchEvent(new Event("auth-state-changed"));
       return response.data.data;
     }
     throw new Error(response.data?.message || "فشل إنشاء الحساب");
@@ -74,6 +112,19 @@ export const authService = {
       localStorage.setItem("user_name", user.name || "");
       localStorage.setItem("user_email", user.email || "");
       localStorage.setItem("user_phone", user.phone || "");
+      if (user.avatar) {
+        localStorage.setItem("user_avatar", user.avatar);
+      } else {
+        localStorage.removeItem("user_avatar");
+      }
+      if (user.role === "admin") {
+        localStorage.setItem("original_admin", "true");
+        syncAdminBackup(user);
+      } else {
+        localStorage.removeItem("original_admin");
+        localStorage.removeItem("admin_profile");
+      }
+      window.dispatchEvent(new Event("auth-state-changed"));
       return response.data.data;
     }
     throw new Error(response.data?.message || "فشل تسجيل الدخول بواسطة Google");
@@ -92,6 +143,10 @@ export const authService = {
         if (user.name) localStorage.setItem("user_name", user.name);
         if (user.email) localStorage.setItem("user_email", user.email);
         if (user.phone) localStorage.setItem("user_phone", user.phone);
+        if (user.avatar !== undefined) localStorage.setItem("user_avatar", user.avatar || "");
+        if (user.role === "admin") {
+          syncAdminBackup(merged);
+        }
         return user;
       }
     } catch (e) {
@@ -111,13 +166,35 @@ export const authService = {
         if (merged.name) localStorage.setItem("user_name", merged.name);
         if (merged.email) localStorage.setItem("user_email", merged.email);
         if (merged.phone) localStorage.setItem("user_phone", merged.phone);
+        if (merged.avatar !== undefined) {
+          localStorage.setItem("user_avatar", merged.avatar || "");
+        }
+        if (localStorage.getItem("user_role") === "admin") {
+          syncAdminBackup(merged);
+        }
+        window.dispatchEvent(new Event("admin-profile-updated"));
         return merged;
       }
     } catch (err: any) {
+      // إذا كان الخطأ 400 أو 409 (مثل خطأ تحقق أو تكرار اسم المستخدم)، نعيد رميه ليظهر للمستخدم
+      if (err?.response?.status === 400 || err?.response?.status === 409) {
+        throw err;
+      }
       console.warn("Could not update profile via API, updating local storage:", err.message);
       const current = JSON.parse(localStorage.getItem("user_data") || "{}");
-      const merged = { ...current, ...updates };
+      const { newPassword: _ignored, ...safeUpdates } = updates;
+      const merged = { ...current, ...safeUpdates };
       localStorage.setItem("user_data", JSON.stringify(merged));
+      if (merged.name) localStorage.setItem("user_name", merged.name);
+      if (merged.email) localStorage.setItem("user_email", merged.email);
+      if (merged.phone) localStorage.setItem("user_phone", merged.phone);
+      if (merged.avatar !== undefined) {
+        localStorage.setItem("user_avatar", merged.avatar || "");
+      }
+      if (localStorage.getItem("user_role") === "admin") {
+        syncAdminBackup(merged);
+      }
+      window.dispatchEvent(new Event("admin-profile-updated"));
       return merged;
     }
   },
@@ -162,7 +239,11 @@ export const authService = {
     localStorage.removeItem("user_name");
     localStorage.removeItem("user_email");
     localStorage.removeItem("user_phone");
+    localStorage.removeItem("user_avatar");
     localStorage.removeItem("user_national_id");
+    localStorage.removeItem("original_admin");
+    localStorage.removeItem("admin_profile");
+    window.dispatchEvent(new Event("auth-state-changed"));
   },
 };
 

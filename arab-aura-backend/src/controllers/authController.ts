@@ -1,5 +1,6 @@
 // src/controllers/authController.ts
 import { Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import { User } from "../models/User";
 import { Brand } from "../models/Brand";
 import { generateToken } from "../utils/jwt";
@@ -285,23 +286,53 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   try {
     if (!req.user) return sendError(res, "غير مصرح", 401);
 
-    const { name, phone, nationalId, birthDate, username, avatar, socialLinks } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      nationalId,
+      birthDate,
+      username,
+      avatar,
+      socialLinks,
+      newPassword,
+    } = req.body;
 
     const updates: any = {};
-    if (name) updates.name = name;
-    if (phone) updates.phone = phone;
-    if (nationalId) updates.nationalId = nationalId;
-    if (birthDate) updates.birthDate = birthDate;
-    if (avatar) updates.avatar = avatar;
-    if (socialLinks) updates.socialLinks = socialLinks;
+    if (name !== undefined && String(name).trim()) updates.name = String(name).trim();
+    if (phone !== undefined) updates.phone = String(phone).trim();
+    if (nationalId !== undefined) updates.nationalId = String(nationalId).trim();
+    if (birthDate !== undefined) updates.birthDate = String(birthDate).trim();
+    if (avatar !== undefined) updates.avatar = avatar;
+    if (socialLinks !== undefined) updates.socialLinks = socialLinks;
 
-    if (username) {
-      const cleanUsername = username.trim().toLowerCase();
+    if (email !== undefined && String(email).trim()) {
+      const cleanEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return sendError(res, "صيغة البريد الإلكتروني غير صالحة", 400);
+      }
+      const existingEmail = await User.findOne({ email: cleanEmail, _id: { $ne: req.user.id } });
+      if (existingEmail) {
+        return sendError(res, "البريد الإلكتروني مستخدم بالفعل من قبل حساب آخر", 409);
+      }
+      updates.email = cleanEmail;
+    }
+
+    if (username !== undefined && String(username).trim()) {
+      const cleanUsername = String(username).trim().toLowerCase();
       const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
       if (existing) {
         return sendError(res, "اسم المستخدم مستخدم بالفعل من قبل شخص آخر", 409);
       }
       updates.username = cleanUsername;
+    }
+
+    if (newPassword !== undefined && String(newPassword).trim()) {
+      if (String(newPassword).length < 6) {
+        return sendError(res, "كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف أو أرقام", 400);
+      }
+      const salt = await bcrypt.genSalt(10);
+      updates.password = await bcrypt.hash(String(newPassword), salt);
     }
 
     const updatedUser = await User.findByIdAndUpdate(req.user.id, updates, {

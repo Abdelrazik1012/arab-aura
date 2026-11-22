@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import type { PlatformOrder } from "../../context/PlatformContext";
 import { LeafletJourneyTracker } from "../../components/LeafletJourneyTracker";
 import BrandLogo from "../../components/BrandLogo";
+import { authService } from "../../services/authService";
 import {
   LogoutIcon,
   SunIcon,
@@ -130,8 +131,7 @@ export const DriverOrdersPage: React.FC = () => {
   const isRtl = lang === "ar";
 
   const handleLogout = () => {
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("auth_token");
+    authService.logout();
     navigate("/login");
   };
 
